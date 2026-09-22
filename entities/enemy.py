@@ -1,8 +1,9 @@
 """敵人類別"""
 import pygame
-from settings import CELL_SIZE, ENEMY_MOVE_RANGE, ENEMY_COLOR, C_WHITE, C_RED, C_GREEN, BOSS_COLOR
+from settings import CELL_SIZE, ENEMY_MOVE_RANGE, ENEMY_COLOR, C_WHITE, BOSS_COLOR
 from entities.hero import Hero
 from systems.grid import get_reachable, get_adjacent
+from ui.components import draw_health_bar
 
 
 class Enemy(Hero):
@@ -24,19 +25,16 @@ class Enemy(Hero):
 
         # 敵人用正方形
         rect = pygame.Rect(x + 6, y + 6, CELL_SIZE - 12, CELL_SIZE - 12)
-        pygame.draw.rect(surface, self.color, rect, border_radius=4)
-        pygame.draw.rect(surface, C_WHITE,    rect, 2, border_radius=4)
+        pygame.draw.rect(surface, (8, 12, 24), rect.move(3, 4), border_radius=8)
+        pygame.draw.rect(surface, self.color, rect, border_radius=8)
+        pygame.draw.rect(surface, (244, 200, 181), rect, 2, border_radius=8)
 
         label = font.render(self.name[:2], True, C_WHITE)
         surface.blit(label, label.get_rect(center=(cx, cy)))
 
         # HP 條
-        bar_w = CELL_SIZE - 12
-        bar_h = 5
-        bx, by = x + 6, y + CELL_SIZE - 10
-        pygame.draw.rect(surface, C_RED,   (bx, by, bar_w, bar_h))
-        fill_w = int(bar_w * self.hp / self.max_hp)
-        pygame.draw.rect(surface, (200, 50, 50), (bx, by, fill_w, bar_h))
+        draw_health_bar(surface, pygame.Rect(x + 8, y + CELL_SIZE - 12, CELL_SIZE - 16, 7),
+                        self.hp, self.max_hp, fill_color=(197, 72, 82))
 
     def ai_action(self, heroes: list, all_entities: list) -> list[str]:
         """簡單 AI：移向最近英雄，若鄰接則攻擊。回傳 log 訊息。"""

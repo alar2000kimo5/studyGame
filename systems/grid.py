@@ -81,6 +81,10 @@ class Grid:
         self.drag_valid   = False
 
     def draw(self, surface: pygame.Surface):
+        board = pygame.Rect(GRID_OFFSET_X - 8, GRID_OFFSET_Y - 8,
+                            GRID_COLS * CELL_SIZE + 16, GRID_ROWS * CELL_SIZE + 16)
+        pygame.draw.rect(surface, (12, 23, 43), board, border_radius=10)
+        pygame.draw.rect(surface, (201, 163, 79), board, 2, border_radius=10)
         for row in range(GRID_ROWS):
             for col in range(GRID_COLS):
                 pos = (col, row)
@@ -94,5 +98,5 @@ class Grid:
                 else:
                     color = C_CELL_NORMAL
 
-                pygame.draw.rect(surface, color, rect)
-                pygame.draw.rect(surface, C_GRID_LINE, rect, 1)
+                pygame.draw.rect(surface, color, rect, border_radius=4)
+                pygame.draw.rect(surface, C_GRID_LINE, rect, 1, border_radius=4)

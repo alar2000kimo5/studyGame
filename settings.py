@@ -12,11 +12,11 @@ GRID_OFFSET_X = (SCREEN_WIDTH  - GRID_COLS * CELL_SIZE) // 2
 GRID_OFFSET_Y = 80
 
 # ── 顏色 ──────────────────────────────────────────────
-C_BG          = (15,  20,  40)
-C_GRID_LINE   = (40,  55,  90)
-C_CELL_NORMAL = (25,  35,  65)
-C_CELL_HOVER  = (50,  80, 120)
-C_CELL_SELECT = (80, 160, 220)
+C_BG          = (10,  18,  35)
+C_GRID_LINE   = (68,  87, 120)
+C_CELL_NORMAL = (23,  38,  66)
+C_CELL_HOVER  = (48,  81, 122)
+C_CELL_SELECT = (74, 143, 197)
 C_CELL_MOVE   = (40, 120,  60)   # 可移動範圍
 C_CELL_ATTACK = (160, 50,  50)   # 攻擊範圍
 
@@ -28,6 +28,10 @@ C_BLUE        = ( 60, 120, 220)
 C_YELLOW      = (240, 200,  50)
 C_PURPLE      = (160,  60, 220)
 C_ORANGE      = (230, 130,  40)
+C_GOLD        = (201, 163,  79)
+C_PANEL       = (17,  29,  51)
+C_PANEL_DARK  = (10,  19,  36)
+C_TEXT_MUTED  = (160, 180, 205)
 
 # ── 英雄 placeholder 顏色（對應不同職業）──────────────
 HERO_COLORS = {

@@ -1,6 +1,7 @@
 """英雄基底類別"""
 import pygame
-from settings import CELL_SIZE, HERO_MOVE_RANGE, C_WHITE, C_RED, C_GREEN, FONT_SIZE_SM
+from settings import CELL_SIZE, HERO_MOVE_RANGE, C_WHITE, FONT_SIZE_SM
+from ui.components import draw_health_bar
 
 
 class Hero:
@@ -53,20 +54,17 @@ class Hero:
         cx, cy = x + CELL_SIZE // 2, y + CELL_SIZE // 2
         r = CELL_SIZE // 2 - 6
 
-        # 本體圓形
+        # 柔和投影與職業徽章
+        pygame.draw.circle(surface, (6, 12, 24), (cx + 3, cy + 4), r)
         pygame.draw.circle(surface, self.color, (cx, cy), r)
-        # 灰邊（已行動）or 白邊
-        border = (120, 120, 120) if self.has_moved else C_WHITE
-        pygame.draw.circle(surface, border, (cx, cy), r, 2)
+        border = (115, 130, 150) if self.has_moved else (232, 213, 164)
+        pygame.draw.circle(surface, border, (cx, cy), r, 3)
+        pygame.draw.circle(surface, (255, 255, 255), (cx - r // 3, cy - r // 3), 4)
 
         # 名字縮寫
         label = font.render(self.name[:2], True, C_WHITE)
         surface.blit(label, label.get_rect(center=(cx, cy)))
 
         # HP 條
-        bar_w = CELL_SIZE - 12
-        bar_h = 5
-        bx, by = x + 6, y + CELL_SIZE - 10
-        pygame.draw.rect(surface, C_RED,   (bx, by, bar_w, bar_h))
-        fill_w = int(bar_w * self.hp / self.max_hp)
-        pygame.draw.rect(surface, C_GREEN, (bx, by, fill_w, bar_h))
+        draw_health_bar(surface, pygame.Rect(x + 8, y + CELL_SIZE - 12, CELL_SIZE - 16, 7),
+                        self.hp, self.max_hp)
