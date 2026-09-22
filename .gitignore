@@ -16,5 +16,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local Git worktrees
+.worktrees/
+
 # Session files
 *.lock
