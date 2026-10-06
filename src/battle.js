@@ -285,18 +285,26 @@
       this.actor = h;
       const el = DH.ELEMENTS[h.element];
       if (targets.length) {
+        const tx = targets.reduce((s, t) => s + t.x, 0) / targets.length, ty = targets.reduce((s, t) => s + t.y, 0) / targets.length;
+        const dx = tx - h.x, dy = ty - h.y, len = Math.hypot(dx, dy) || 1;
+        const ak = DH.weaponAnim(h.look.weapon);
         if (h.pattern.kind === 'melee') {
-          const tx = targets.reduce((s, t) => s + t.x, 0) / targets.length, ty = targets.reduce((s, t) => s + t.y, 0) / targets.length;
-          const dx = tx - h.x, dy = ty - h.y, len = Math.hypot(dx, dy) || 1;
-          h.offX = dx / len * 18; h.offY = dy / len * 18;
-          await sleep(120);
+          h.playAnim(ak, 0.55, dx);
+          h.offX = dx / len * 14; h.offY = dy / len * 14;
+          await sleep(ak === 'stab' ? 150 : 260);
           for (const t of targets) this.fx.slash(t.x, t.y - 8, '#fff');
+          await sleep(60);
         } else if (h.pattern.kind === 'ranged') {
+          h.playAnim(ak === 'strum' ? 'strum' : 'shoot', 0.6, dx);
+          await sleep(ak === 'strum' ? 150 : 280);
+          if (ak === 'strum') for (let i = 0; i < 3; i++) this.fx.text(h.x + (i - 1) * 14, h.y - 30 - i * 6, '♪', el.light, { size: 16, dur: 0.8, vy: -50 });
           for (const t of targets) this.fx.projectile({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.22);
           await sleep(220);
         } else {
+          h.playAnim(ak === 'cast' ? 'cast' : ak, 0.7, dx);
+          await sleep(300);
           for (const t of targets) this.fx.beam({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color);
-          await sleep(260);
+          await sleep(220);
         }
         let dealtTotal = 0, kills = 0;
         const orderIndex = this.turnOrder.indexOf(h), orderLast = this.turnOrder.filter(x => x.alive).slice(-1)[0] === h;
@@ -332,11 +340,11 @@
         for (const p of res2.targets.map(q => this.unitAt(q[0], q[1])).concat([h])) { const n = p.heal(Math.round(p.maxHp * 0.08 * h.sig.scale)); if (n > 0) this.fx.text(p.x, p.y - 30, `+${n}`, PAL.heal); }
       }
       h.swapBuff = 0; h.iceBuff = 0;
-      if (hasSupport) { const done = this.applySupport(h); if (!targets.length && done.length) this.addLog(`${h.name} 支援隊友`); }
+      if (hasSupport) { if (!targets.length) { h.playAnim('cast', 0.6, 0); await sleep(250); } const done = this.applySupport(h); if (!targets.length && done.length) this.addLog(`${h.name} 支援隊友`); }
       if (h.buffAtk > 0) h.buffAtk--;
       await sleep(140);
-      h.offX = 0; h.offY = 0; this.actor = null;
-      await sleep(260);
+      h.offX = 0; h.offY = 0; this.actor = null; h.face = 1;
+      await sleep(220);
     }
 
     // 專武：命中後效果（狀態、處決、龍息濺射）
@@ -418,12 +426,17 @@
           if (m.pattern.kind === 'melee') {
             const tx = targets.reduce((s, t) => s + t.x, 0) / targets.length, ty = targets.reduce((s, t) => s + t.y, 0) / targets.length;
             const dx = tx - m.x, dy = ty - m.y, len = Math.hypot(dx, dy) || 1;
-            m.offX = dx / len * 16; m.offY = dy / len * 16; await sleep(120);
+            m.playAnim('lunge', 0.45, dx);
+            m.offX = dx / len * 16; m.offY = dy / len * 16; await sleep(160);
             for (const t of targets) this.fx.slash(t.x, t.y - 8, el.light);
           } else if (m.pattern.kind === 'ranged') {
+            m.playAnim('lunge', 0.4, targets[0].x - m.x);
+            await sleep(120);
             for (const t of targets) this.fx.projectile({ x: m.x, y: m.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.25);
             await sleep(250);
           } else {
+            m.playAnim('lunge', 0.5, targets[0].x - m.x);
+            await sleep(140);
             for (const t of targets) this.fx.beam({ x: m.x, y: m.y - 10 }, { x: t.x, y: t.y - 6 }, el.color);
             await sleep(280);
           }
@@ -447,7 +460,7 @@
             if (!t.alive) this.fx.burst(t.x, t.y - 10, '#fff', 14);
           }
           this.addLog(`${m.name} 攻擊 ${targets.map(t => t.name).join('、')}`);
-          await sleep(140); m.offX = 0; m.offY = 0;
+          await sleep(140); m.offX = 0; m.offY = 0; m.face = 1;
           await sleep(220);
         }
         this.actor = null;

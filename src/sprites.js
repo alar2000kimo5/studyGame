@@ -36,7 +36,20 @@
 
   // ───────────────────────── 英雄 ─────────────────────────
   const RARITY_GLOW = { magic: '#5aa0ff', epic: '#b464ff', mythic: '#ff7a3a', legendary: '#ffd24a', signature: '#ff6ad5' };
-  function drawWeapon(ctx, kind, x, y, el, t, rarity) {
+  // 動作種類：swing 揮砍（劍斧錘棍）、stab 連刺（匕首）、shoot 拉弓、cast 施法（法杖／元素球／權杖）、strum 撥弦（琴）
+  const WEAPON_ANIM = { sword: 'swing', axe: 'swing', mace: 'swing', club: 'swing', hammer: 'swing', dagger: 'stab', bow: 'shoot', staff: 'cast', orb: 'cast', scepter: 'cast', lute: 'strum' };
+  DH.weaponAnim = kind => WEAPON_ANIM[kind] || 'swing';
+  const ease = p => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+  function drawWeapon(ctx, kind, x, y, el, t, rarity, anim) {
+    // 動作：p 0→1
+    const p = anim ? Math.min(1, anim.t / anim.dur) : 0, ak = anim ? anim.kind : null;
+    let rot = 0, dx = 0, dy = 0;
+    if (ak === 'swing') rot = p < 0.3 ? -1.1 * (p / 0.3) : -1.1 + 2.4 * ease(Math.min(1, (p - 0.3) / 0.45));
+    else if (ak === 'stab') { const q = (p * 2) % 1; dx = -18 * Math.sin(q * Math.PI); dy = -6 * Math.sin(q * Math.PI); }
+    else if (ak === 'cast') { rot = -0.9 * Math.sin(Math.min(1, p / 0.6) * Math.PI / 2) * (p < 0.85 ? 1 : (1 - p) / 0.15); dy = -8 * Math.sin(p * Math.PI); }
+    else if (ak === 'strum') rot = 0.25 * Math.sin(p * Math.PI * 6) * (1 - p);
+    ctx.save();
+    if (ak && ak !== 'shoot') { ctx.translate(x + 17 + dx, y + 2 + dy); ctx.rotate(rot); ctx.translate(-(x + 17), -(y + 2)); }
     const gold = '#e6b84a', steel = rarity ? { magic: '#cfe0ff', epic: '#e6ccff', mythic: '#ffd2b0', legendary: '#fff0b0', signature: '#ffd6f4' }[rarity] : '#cfd6e2', steelDark = '#8b95a6', wood = '#8a5a30';
     if (rarity) {
       const g = RARITY_GLOW[rarity];
@@ -79,12 +92,17 @@
         rr(ctx, -2, -28, 4, 34, 2); fillStroke(ctx, wood, OUTLINE, 1.5);
         ctx.beginPath(); ctx.moveTo(0, -27); ctx.quadraticCurveTo(14, -30, 12, -14); ctx.quadraticCurveTo(6, -18, 0, -16); ctx.closePath();
         fillStroke(ctx, steel, OUTLINE, 1.5); ctx.restore(); break;
-      case 'bow':
+      case 'bow': {
+        const pull = ak === 'shoot' ? (p < 0.45 ? 14 * (p / 0.45) : p < 0.55 ? 14 * (1 - (p - 0.45) / 0.1) : 0) : 0;
         ctx.save(); ctx.translate(x + 18, y - 2);
+        if (ak === 'shoot') ctx.rotate(-0.35 * Math.sin(Math.min(1, p / 0.5) * Math.PI / 2));
         ctx.beginPath(); ctx.arc(-6, 0, 20, -1.1, 1.1); ctx.lineWidth = 3.5; ctx.strokeStyle = OUTLINE; ctx.stroke();
         ctx.lineWidth = 2; ctx.strokeStyle = wood; ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-6 + 20 * Math.cos(-1.1), 20 * Math.sin(-1.1)); ctx.lineTo(-6 + 20 * Math.cos(1.1), 20 * Math.sin(1.1));
-        ctx.lineWidth = 1; ctx.strokeStyle = '#eee'; ctx.stroke(); ctx.restore(); break;
+        const tx = -6 + 20 * Math.cos(1.1), ty = 20 * Math.sin(1.1), bx = -6 + 20 * Math.cos(-1.1), by = 20 * Math.sin(-1.1);
+        ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(-6 + 14 - pull, 0); ctx.lineTo(tx, ty); ctx.lineWidth = 1; ctx.strokeStyle = '#eee'; ctx.stroke();
+        if (pull > 0) { ctx.beginPath(); ctx.moveTo(-6 + 14 - pull, 0); ctx.lineTo(-6 + 14 - pull + 26, 0); ctx.lineWidth = 2.5; ctx.strokeStyle = '#3a2a1a'; ctx.stroke(); ctx.beginPath(); ctx.moveTo(-6 + 14 - pull + 26, 0); ctx.lineTo(-6 + 14 - pull + 20, -3); ctx.lineTo(-6 + 14 - pull + 20, 3); ctx.closePath(); ctx.fillStyle = el.color; ctx.fill(); }
+        ctx.restore(); break;
+      }
       case 'staff': {
         ctx.save(); ctx.translate(x + 18, y + 4); ctx.rotate(0.1);
         rr(ctx, -2, -30, 4, 38, 2); fillStroke(ctx, wood, OUTLINE, 1.5);
@@ -112,6 +130,9 @@
         for (const [sx, sy] of [[-2, -20], [3, -14], [-1, -8]]) { circ(ctx, sx, sy, 1.5); ctx.fillStyle = steelDark; ctx.fill(); }
         ctx.restore(); break;
     }
+    // 揮砍殘影
+    if (ak === 'swing' && p > 0.3 && p < 0.8) { ctx.save(); ctx.globalAlpha = 0.5 * (1 - (p - 0.3) / 0.5); ctx.beginPath(); ctx.arc(x + 17, y + 2, 30, -1.6, -1.6 + 2.4 * ease((p - 0.3) / 0.45)); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore(); }
+    ctx.restore();
   }
 
   function drawHair(ctx, look, x, y, r) {
@@ -144,7 +165,18 @@
     ctx.translate(x, y + 2);
     if (!opts.noShadow) shadow(ctx, 0, 22, 40 * (hero.lifted ? 1.3 : 1));
     if (hero.lifted) ctx.translate(0, -14);
-    ctx.scale(hero.scale || 1, hero.scale || 1);
+    const anim = hero.anim, ap = anim ? Math.min(1, anim.t / anim.dur) : 0;
+    // 施法陣
+    if (anim && anim.kind === 'cast') { ctx.save(); ctx.globalAlpha = 0.8 * Math.sin(ap * Math.PI); ctx.translate(0, 20); ctx.scale(1, 0.4); ctx.rotate(t * 2); ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = el.light; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; ctx.lineTo(Math.cos(a) * 26, Math.sin(a) * 26); } ctx.closePath(); ctx.lineWidth = 2; ctx.strokeStyle = el.color; ctx.stroke(); ctx.restore(); }
+    ctx.scale((hero.scale || 1) * (hero.face || 1), hero.scale || 1);
+    // 身體動作：揮砍前傾、連刺前衝、施法上抬、撥弦搖擺
+    if (anim) {
+      if (anim.kind === 'swing') { ctx.rotate(0.18 * Math.sin(Math.min(1, ap / 0.75) * Math.PI)); }
+      else if (anim.kind === 'stab') { ctx.translate(6 * Math.sin(ap * Math.PI * 2), 0); }
+      else if (anim.kind === 'cast') { ctx.translate(0, -4 * Math.sin(ap * Math.PI)); }
+      else if (anim.kind === 'strum') { ctx.rotate(0.08 * Math.sin(ap * Math.PI * 6)); }
+      else if (anim.kind === 'shoot') { ctx.rotate(-0.08 * Math.sin(Math.min(1, ap / 0.5) * Math.PI / 2)); }
+    }
     ctx.translate(0, bob);
     if (look.small) { ctx.translate(0, 4); ctx.scale(0.86, 0.86); }
     if (look.stout) { ctx.translate(0, 2); ctx.scale(1.08, 0.93); }
@@ -176,7 +208,7 @@
     // 盾
     if (look.shield) { ctx.save(); ctx.translate(-20, 4); circ(ctx, 0, 0, 10); fillStroke(ctx, '#a9b4c4', OUTLINE, 2); circ(ctx, 0, 0, 5.5); ctx.fillStyle = el.color; ctx.fill(); ctx.restore(); }
     // 武器
-    drawWeapon(ctx, look.weapon, 0, 0, el, t, hero.weaponRarity);
+    drawWeapon(ctx, look.weapon, 0, 0, el, t, hero.weaponRarity, hero.anim);
     // 頭
     const hy = -17, hr = 15;
     circ(ctx, 0, hy, hr); fillStroke(ctx, look.skin, OUTLINE, 2);
@@ -409,7 +441,8 @@
     ctx.translate(x, y + 2 - (m.dropY || 0));
     shadow(ctx, 0, 22, (m.boss ? 60 : 42) * ((m.def && m.def.size) || 1));
     const sz = (m.def && m.def.size) || 1;
-    ctx.scale((m.scale || 1) * sz, (m.scale || 1) * sz);
+    ctx.scale((m.scale || 1) * sz * (m.face || 1), (m.scale || 1) * sz);
+    if (m.anim) { const ap = Math.min(1, m.anim.t / m.anim.dur), k = Math.sin(ap * Math.PI); ctx.rotate(0.22 * k); ctx.scale(1 + 0.12 * k, 1 - 0.08 * k); }
     ctx.translate(0, bob);
     (SHAPES[m.shape] || SHAPES.goblin)(ctx, m, t);
     ctx.restore();

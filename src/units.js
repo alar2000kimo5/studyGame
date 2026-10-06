@@ -24,7 +24,9 @@
       this.scale = 1; this.alpha = 1;
       this.flash = 0; this.dropY = 0;
       this.lifted = false;
+      this.anim = null; this.face = 1;           // 攻擊動作與面向
     }
+    playAnim(kind, dur, dx) { this.anim = { kind, t: 0, dur: dur || 0.5 }; if (dx) this.face = dx < 0 ? -1 : 1; }
     get pos() { return [this.col, this.row]; }
     has(t) { return this.talents.includes(t); }
     hasSig() { return false; }
@@ -52,6 +54,7 @@
         if (Math.abs(c.y - this.y) < 0.5) this.y = c.y;
       }
       this.flash = Math.max(0, this.flash - dt);
+      if (this.anim) { this.anim.t += dt; if (this.anim.t >= this.anim.dur) this.anim = null; }
       if (this.dropY > 0) this.dropY = Math.max(0, this.dropY - dt * 900);
       if (!this.alive && this.alpha > 0) this.alpha = Math.max(0, this.alpha - dt * 2.5);
     }
