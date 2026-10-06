@@ -17,7 +17,7 @@
       return {
         gold: 500, gems: 1500, tokens: 3, soulSigils: 0,
         xp: { red: 200, green: 200, blue: 200, light: 200, dark: 200, rainbow: 300 },
-        heroes: [], gear: [], team: [], stars: {}, firstClear: {},
+        heroes: [], gear: [], team: [], stars: {}, firstClear: {}, story: {},
       };
     }
     load() {
@@ -272,6 +272,27 @@
       if (n >= 10 && !out.some(g => g.rarity === 'signature')) out[n - 1] = DH.makeSignature(ids[Math.floor(Math.random() * ids.length)]);
       for (const g of out) this.d.gear.push(g);
       this.save(); return out;
+    }
+    // ── 故事 ─────────────────────────────────────────
+    storyProgress(heroId) { return (this.d.story && this.d.story[heroId]) || 0; }
+    storyTeam(heroId) {
+      // 故事戰鬥：故事主角必須上場；沒在隊伍裡就暫時放到隊長位
+      const own = this.d.heroes.find(h => h.id === heroId); if (!own) return null;
+      let team = this.d.team.slice();
+      if (!team.includes(own.uid)) { team = [own.uid].concat(team).slice(0, 5); }
+      return team;
+    }
+    completeStoryChapter(story, idx, partnerPresent) {
+      if (!this.d.story) this.d.story = {};
+      const cur = this.storyProgress(story.heroId);
+      const r = { gold: 300 + 200 * idx, gems: 60 + 30 * idx, tokens: idx === 4 ? 2 : 0, sig: null, bonus: 0, first: cur <= idx };
+      if (cur <= idx) {
+        this.d.story[story.heroId] = idx + 1;
+        if (story.chapters[idx].bonus && partnerPresent) r.bonus = 300;
+        if (idx === 4) { const g = DH.makeSignature(story.heroId, 0); g.level = 2; this.d.gear.push(g); r.sig = g; }
+      } else { r.gold = Math.round(r.gold / 3); r.gems = Math.round(r.gems / 3); r.tokens = 0; }
+      this.d.gold += r.gold; this.d.gems += r.gems + r.bonus; this.d.tokens += r.tokens;
+      this.save(); return r;
     }
     // ── 戰利品 ───────────────────────────────────────
     rewardFor(dungeon, stars) {

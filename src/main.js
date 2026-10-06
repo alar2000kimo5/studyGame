@@ -36,7 +36,8 @@
       cv.addEventListener('contextmenu', e => e.preventDefault());
     }
     _switch(scene) { if (this.scene && this.scene.dead !== undefined) this.scene.dead = true; this.scene = scene; }
-    show(key) { ({ campaign: () => this.showCampaign(), barracks: () => this.showBarracks(), summon: () => this.showSummon(), shop: () => this.showShop() })[key](); }
+    show(key) { ({ campaign: () => this.showCampaign(), barracks: () => this.showBarracks(), summon: () => this.showSummon(), shop: () => this.showShop(), stories: () => this.showStories() })[key](); }
+    showStories(heroId, outro) { this._switch(new DH.Stories(this, heroId, outro)); }
     showCampaign() { this._switch(new DH.Campaign(this)); }
     showBarracks() { this._switch(new DH.Barracks(this)); }
     showHeroCard(uid, back) { this._switch(new DH.HeroCard(this, uid, back || (() => this.showBarracks()))); }
@@ -47,7 +48,22 @@
       const defs = this.meta.teamHeroes().map(h => this.meta.buildBattleDef(h));
       this._switch(new DH.Battle(this, d, defs));
     }
-    onVictory(dungeon, stars) { const r = this.meta.rewardFor(dungeon, stars); this.meta.applyReward(dungeon, stars, r); return r; }
+    onVictory(dungeon, stars) {
+      if (dungeon.story) {
+        const story = DH.storyOf(dungeon.story.heroId), ch = story.chapters[dungeon.story.idx];
+        const partnerPresent = !!story.partner && this.scene.heroes.some(h => h.id === story.partner);
+        const r = this.meta.completeStoryChapter(story, dungeon.story.idx, partnerPresent);
+        return Object.assign(r, { xp: {}, gear: r.sig, storyOutro: ch.outro, storyBonus: r.bonus });
+      }
+      const r = this.meta.rewardFor(dungeon, stars); this.meta.applyReward(dungeon, stars, r); return r;
+    }
+    startStoryBattle(story, idx) {
+      const team = this.meta.storyTeam(story.heroId); if (!team) return false;
+      const d = DH.genStoryLevel(story, idx);
+      const defs = this.meta.withTeam(team, () => team.map(u => this.meta.hero(u)).filter(Boolean).map(h => this.meta.buildBattleDef(h)));
+      this._switch(new DH.Battle(this, d, defs));
+      return true;
+    }
     nextDungeon(id) { return DH.DUNGEONS.find(d => d.id === id + 1) || null; }
     frame(t) {
       const dt = Math.min(0.05, (t - this.last) / 1000); this.last = t;

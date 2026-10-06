@@ -136,5 +136,20 @@
   }
   DH.CHAPTER = { name: DH.CHAPTERS[0].name };
   DH.levelsOf = chId => DH.DUNGEONS.filter(d => d.chapter === chId);
+  // 故事戰鬥：依章節主題生成地形，怪物用故事指定的清單，強度隨章節提高
+  DH.genStoryLevel = function (story, idx) {
+    const ch = story.chapters[idx], chapDef = DH.CHAPTERS.find(c => c.theme === ch.theme) || DH.CHAPTERS[0];
+    const seed = (story.heroId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 131 + idx * 977) >>> 0;
+    const R = rng(seed);
+    const terrain = genTerrain(chapDef, 6 + idx * 3, R);
+    const spawnCells = [];
+    for (let r = 0; r <= 2; r++) for (let c = 0; c < COLS; c++) if ('.M'.includes(terrain[r][c])) spawnCells.push([c, r]);
+    const cells = spawnCells.slice(), mons = [];
+    for (const mid of ch.monsters) { if (!cells.length) break; const ci = Math.floor(R() * cells.length); mons.push({ id: mid, pos: cells.splice(ci, 1)[0] }); }
+    const bi = mons.findIndex(m => DH.MONSTERS[m.id].boss);
+    if (bi >= 0) { const center = mons.find(m => m.pos[0] === 3 && m.pos[1] === 0) ? null : [3, 0]; if (center && '.M'.includes(terrain[0][3])) { const other = mons.find(m => m.pos[0] === 3 && m.pos[1] === 0); if (!other) mons[bi].pos = center; } }
+    const scale = { hp: 1 + 0.35 * idx, atk: 1 + 0.25 * idx };
+    return { id: 'story_' + story.heroId + '_' + idx, chapter: 0, index: idx + 1, theme: ch.theme, name: `${story.title}・${ch.title}`, desc: ch.intro, terrain, stages: [mons], scale, boss: !!ch.boss, heroes: ['knight', 'warrior', 'archer'], story: { heroId: story.heroId, idx } };
+  };
   DH.terrainTypes = d => [...new Set(d.terrain.join('').split('').filter(c => c !== '.'))];
 })(window.DH);

@@ -76,10 +76,10 @@
   };
   // 底部導覽列
   UI.nav = function (scene, ctx, active) {
-    const tabs = [['campaign', '戰役'], ['barracks', '兵營'], ['summon', '召喚'], ['shop', '商店']];
+    const tabs = [['campaign', '戰役'], ['stories', '故事'], ['barracks', '兵營'], ['summon', '召喚'], ['shop', '商店']];
     const y = C.H - 70;
     UI.panel(ctx, 12, y, 516, 58, { radius: 16, fill: 'rgba(16,12,24,0.92)' });
-    const w = 516 / 4;
+    const w = 516 / tabs.length;
     tabs.forEach(([key, label], i) => {
       const x = 12 + i * w, on = key === active;
       if (on) { S.rr(ctx, x + 8, y + 6, w - 16, 46, 12); ctx.fillStyle = PAL.panelLight; ctx.fill(); }

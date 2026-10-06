@@ -1002,7 +1002,15 @@
         }
         ctx.font = `14px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(this.stars === 3 ? '全員生還' : `${this.heroes.filter(h => !h.alive).length} 名英雄陣亡`, C.W / 2, top + 168);
         const r = this.reward;
-        if (r) {
+        if (r && this.dungeon.story) {
+          S.rr(ctx, 84, top + 190, 372, 118, 12); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+          ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(r.first ? '故事章節完成' : '故事章節（重複挑戰）', 100, top + 208);
+          ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = PAL.text;
+          ctx.fillText(`金幣 +${r.gold}　寶石 +${r.gems}${r.storyBonus ? '（緣份夥伴同行 +' + r.storyBonus + '）' : ''}${r.tokens ? '　天賦代幣 +' + r.tokens : ''}`, 100, top + 232);
+          if (r.sig) { ctx.fillStyle = '#ff9ae0'; ctx.fillText(`故事完成！獲得專武：${DH.gearLabel(r.sig)}`, 100, top + 254); }
+          else { ctx.fillStyle = PAL.textDim; ctx.fillText('返回故事畫面觀看後續劇情', 100, top + 254); }
+          ctx.textAlign = 'center';
+        } else if (r) {
           S.rr(ctx, 84, top + 190, 372, 118, 12); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
           ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(r.first ? '戰利品（首次通關加成）' : '戰利品', 100, top + 208);
           ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = PAL.text;
@@ -1018,8 +1026,9 @@
         ctx.fillText('試著讓怪物同時被多名英雄攻擊，', C.W / 2, 420); ctx.fillText('並把牧師留到最後再碰，讓他先出手治療。', C.W / 2, 446);
       }
       const bx = 100, by = top + ph - 90, bw = 160, bh = 54;
-      this.button(ctx, bx, by, bw, bh, '返回地圖', PAL.panelLight, () => this.game.showCampaign());
-      if (won && this.game.nextDungeon(this.dungeon.id)) this.button(ctx, bx + 180, by, bw, bh, '下一關 ▶', PAL.gold, () => this.game.startDungeon(this.game.nextDungeon(this.dungeon.id)), '#2a2030');
+      this.button(ctx, bx, by, bw, bh, this.dungeon.story ? '返回故事' : '返回地圖', PAL.panelLight, () => this.dungeon.story ? this.game.showStories(this.dungeon.story.heroId) : this.game.showCampaign());
+      if (this.dungeon.story) this.button(ctx, bx + 180, by, bw, bh, won ? '觀看劇情 ▶' : '返回故事', PAL.gold, () => this.game.showStories(this.dungeon.story.heroId, won ? this.dungeon.story.idx : null), '#2a2030');
+      else if (won && this.game.nextDungeon(this.dungeon.id)) this.button(ctx, bx + 180, by, bw, bh, '下一關 ▶', PAL.gold, () => this.game.startDungeon(this.game.nextDungeon(this.dungeon.id)), '#2a2030');
       else this.button(ctx, bx + 180, by, bw, bh, '再挑戰一次', PAL.gold, () => this.game.startDungeon(this.dungeon), '#2a2030');
       ctx.restore();
     }
