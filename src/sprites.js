@@ -145,6 +145,8 @@
     if (hero.lifted) ctx.translate(0, -14);
     ctx.scale(hero.scale || 1, hero.scale || 1);
     ctx.translate(0, bob);
+    if (look.small) { ctx.translate(0, 4); ctx.scale(0.86, 0.86); }
+    if (look.stout) { ctx.translate(0, 2); ctx.scale(1.08, 0.93); }
     const tunic = el.color, tunicD = el.dark;
 
     // 腿與靴
@@ -166,6 +168,7 @@
     // 頭
     const hy = -17, hr = 15;
     circ(ctx, 0, hy, hr); fillStroke(ctx, look.skin, OUTLINE, 2);
+    if (look.ears) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * (hr - 4), hy - 4); ctx.lineTo(s * (hr + 9), hy - 10); ctx.lineTo(s * (hr - 2), hy + 4); ctx.closePath(); fillStroke(ctx, look.skin, OUTLINE, 2); }
     // 鬍子
     if (look.beard) { ctx.beginPath(); ctx.moveTo(-10, hy + 4); ctx.quadraticCurveTo(0, hy + 24, 10, hy + 4); ctx.quadraticCurveTo(0, hy + 10, -10, hy + 4); fillStroke(ctx, look.hair, OUTLINE, 1.5); }
     // 眼睛
@@ -175,6 +178,7 @@
     if (look.warpaint) { ctx.fillStyle = '#d23a2a'; rr(ctx, -12, eyeY + 4, 7, 2.5, 1); ctx.fill(); rr(ctx, 5, eyeY + 4, 7, 2.5, 1); ctx.fill(); }
     // 嘴 & 臉紅
     ctx.beginPath(); ctx.arc(0, hy + 7, 3.5, 0.2, Math.PI - 0.2); ctx.lineWidth = 1.5; ctx.strokeStyle = '#7a3a3a'; ctx.stroke();
+    if (look.tusks) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 4, hy + 9); ctx.lineTo(s * 5.5, hy + 3); ctx.lineTo(s * 2, hy + 7.5); ctx.closePath(); fillStroke(ctx, '#f4f0e0', OUTLINE, 1); }
     ctx.globalAlpha = 0.35; circ(ctx, -9, hy + 6, 3); ctx.fillStyle = '#ff7a7a'; ctx.fill(); circ(ctx, 9, hy + 6, 3); ctx.fill(); ctx.globalAlpha = 1;
     // 角（龍裔）
     if (look.horns) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 9, hy - 10); ctx.quadraticCurveTo(s * 18, hy - 18, s * 13, hy - 28); ctx.quadraticCurveTo(s * 15, hy - 16, s * 13, hy - 8); ctx.closePath(); fillStroke(ctx, '#f3d27a', OUTLINE, 1.5); }

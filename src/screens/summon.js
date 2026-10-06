@@ -3,7 +3,7 @@
   const C = DH.CONFIG, PAL = DH.PALETTE, S = DH.shapes, UI = DH.UI;
   const K = DH.META_CONST;
   class Summon extends UI.Screen {
-    constructor(game) { super(game); this.result = null; this.revealT = 0; this.codex = false; this.codexSel = null; }
+    constructor(game) { super(game); this.result = null; this.revealT = 0; this.codex = false; this.codexSel = null; this.filter = { element: null, species: null, cls: null }; }
     openCodex() { this.codex = true; this.scrollY = 0; this.codexSel = null; }
     closeCodex() { this.codex = false; this.scrollY = 0; this.scrollMax = 0; }
     update(dt) { super.update(dt); if (this.result) this.revealT += dt; }
@@ -46,12 +46,13 @@
       this.buttons = [];
       const m = this.game.meta, owned = new Set(m.d.heroes.map(h => h.id));
       ctx.fillStyle = 'rgba(6,4,12,0.96)'; ctx.fillRect(0, 0, C.W, C.H);
-      const detailH = this.codexSel ? 190 : 0, top = 92, bottom = C.H - 70 - detailH;
+      const detailH = this.codexSel ? 190 : 0, top = 182, bottom = C.H - 70 - detailH;
+      const F = this.filter, match = d => (!F.element || d.element === F.element) && (!F.species || d.species === F.species) && (!F.cls || d.classKey === F.cls);
       ctx.save(); ctx.beginPath(); ctx.rect(0, top, C.W, bottom - top); ctx.clip();
       let y = top + 10 - this.scrollY;
       const cols = 4, cw = 118, ch = 150, gap = 8, x0 = (C.W - cols * cw - (cols - 1) * gap) / 2;
       for (let stars = 5; stars >= 1; stars--) {
-        const list = Object.values(DH.HEROES).filter(d => d.stars === stars);
+        const list = Object.values(DH.HEROES).filter(d => d.stars === stars && match(d));
         if (!list.length) continue;
         ctx.font = `bold 14px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold;
         ctx.fillText(`${stars}★　機率 ${K.SUMMON_RATES[stars]}%　${list.length} 位`, x0, y + 10);
@@ -91,8 +92,28 @@
         ctx.fillStyle = PAL.textDim; UI.wrap(ctx, d.flavor, 28, dy + 162, 440, 16, 1);
       }
       ctx.fillStyle = 'rgba(6,4,12,1)'; ctx.fillRect(0, 0, C.W, top);
-      ctx.font = `bold 22px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText('可召喚的英雄', 28, 46);
-      ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`共 ${Object.keys(DH.HEROES).length} 位，已擁有 ${owned.size} 種。點擊英雄查看天賦。`, 28, 72);
+      ctx.font = `bold 22px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText('可召喚的英雄', 28, 40);
+      const shown = Object.values(DH.HEROES).filter(match).length;
+      ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`共 ${Object.keys(DH.HEROES).length} 位，已擁有 ${owned.size} 種，顯示 ${shown} 位。點擊英雄查看天賦。`, 28, 64);
+      // 篩選列：顏色、種族、職業
+      const chipRow = (y0, items, key) => {
+        let x = 16;
+        for (const [val, label, color] of items) {
+          ctx.font = `bold 11px ${DH.FONT}`; const w = ctx.measureText(label).width + 12;
+          if (x + w > C.W - 16) { x = 16; y0 += 24; }
+          const on = F[key] === val || (val === null && !F[key]);
+          S.rr(ctx, x, y0, w, 20, 10); ctx.fillStyle = on ? (color || PAL.gold) : 'rgba(255,255,255,0.08)'; ctx.fill();
+          if (on) { ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = on ? '#1a1420' : PAL.text; ctx.fillText(label, x + 6, y0 + 10.5);
+          this.buttons.push({ x, y: y0, w, h: 20, onClick: () => { F[key] = val; this.scrollY = 0; this.codexSel = null; } });
+          x += w + 5;
+        }
+        return y0 + 24;
+      };
+      let fy = 82;
+      fy = chipRow(fy, [[null, '全部'], ...Object.entries(DH.ELEMENTS).map(([k, e]) => [k, e.name + '色', e.color])], 'element');
+      fy = chipRow(fy, [[null, '全部'], ...Object.entries(DH.SPECIES).map(([k, n]) => [k, n, '#b9a9d9'])], 'species');
+      fy = chipRow(fy, [[null, '全部'], ...Object.entries(DH.CLASSES).map(([k, c]) => [k, c.cls, '#9ad8c8'])], 'cls');
       UI.button(this, ctx, 400, 26, 112, 40, '關閉', { size: 14, onClick: () => this.closeCodex() });
     }
     drawResult(ctx) {
