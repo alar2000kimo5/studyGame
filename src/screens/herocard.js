@@ -94,8 +94,18 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
-      // ── 操作 ──
+      // ── 專武 ──
       py += 160;
+      const sigGear = m.sigOf(h), sigName = DH.signatureName(h.id), trait = DH.sigTraitFor(h.id), sp = DH.SIG_SPECIES[d.species];
+      UI.panel(ctx, 16, py, 508, 118, { radius: 14, fill: sigGear ? 'rgba(58,26,52,0.85)' : 'rgba(16,12,24,0.75)', stroke: sigGear ? '#ff6ad5' : PAL.frame });
+      ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專屬武器：${sigName}${sigGear ? `　Lv.${sigGear.level || 1} / ${DH.SIG_LEVEL_MAX}` : '　（未裝備，從武器召喚取得）'}`, 30, py + 18);
+      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = sigGear ? PAL.text : PAL.textDim;
+      const lv = sigGear ? sigGear.level || 1 : 1;
+      UI.wrap(ctx, `【${DH.SPECIES[d.species]}・${sp.name}】${DH.sigSpeciesDesc(d.species, lv)}`, 30, py + 40, 480, 15, 2);
+      UI.wrap(ctx, `【${trait.name}】${DH.sigTraitDesc(h.id, lv)}`, 30, py + 72, 480, 15, 2);
+      ctx.fillStyle = PAL.textDim; ctx.fillText(`基礎：攻擊 +${Math.round(DH.sigBasePct(lv) * 100)}%、生命 +${Math.round(DH.sigHpPct(lv) * 100)}%。用同名專武可強化（每級效果 +15%）。`, 30, py + 104);
+      // ── 操作 ──
+      py += 128;
       const req = m.ascendReq(h), inTeam = m.d.team.includes(h.uid), dups = m.duplicates(h);
       UI.panel(ctx, 16, py, 508, 150, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
       ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText('昇華', 30, py + 18);
@@ -124,13 +134,17 @@
       UI.panel(ctx, 30, 140, 480, 680, { radius: 18, fill: PAL.panel });
       ctx.font = `bold 20px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText(`選擇${slot.name}`, 50, 170);
       const cur = h.gear[slot.key];
-      if (cur) { ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[cur.rarity].color; ctx.fillText(`目前：${DH.gearLabel(cur)}　${DH.gearStatLabel(cur)}`, 50, 196); UI.button(this, ctx, 370, 182, 120, 30, '卸下', { size: 12, onClick: () => { m.unequip(h, slot.key); } }); }
+      if (cur) {
+        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[cur.rarity].color; ctx.fillText(`目前：${DH.gearLabel(cur)}　${DH.gearStatLabel(cur)}`, 50, 196);
+        if (cur.rarity === 'signature') { const mats = m.sigMaterials(h, cur).length, maxed = (cur.level || 1) >= DH.SIG_LEVEL_MAX; UI.button(this, ctx, 50, 212, 150, 30, maxed ? '已滿級' : `強化（材料 ${mats}）`, { size: 12, fill: '#ff6ad5', textColor: '#2a2030', disabled: maxed || !mats, onClick: () => { if (m.upgradeSignature(h, cur)) this.flash(`專武升到 Lv.${cur.level}！`, '#ff9ae0'); } }); }
+        UI.button(this, ctx, 370, 212, 120, 30, '卸下', { size: 12, onClick: () => { m.unequip(h, slot.key); } });
+      }
       else { ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('目前沒有裝備', 50, 196); }
-      ctx.save(); ctx.beginPath(); ctx.rect(30, 214, 480, 540); ctx.clip();
-      this.pickerMax = Math.max(0, items.length * 62 - 540);
+      ctx.save(); ctx.beginPath(); ctx.rect(30, 248, 480, 506); ctx.clip();
+      this.pickerMax = Math.max(0, items.length * 62 - 506);
       if (!items.length) { ctx.font = `14px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.textAlign = 'center'; ctx.fillText('背包裡沒有這個部位的裝備。打地牢或到商店取得。', C.W / 2, 300); }
       items.forEach((g, i) => {
-        const y = 220 + i * 62 - (this.pickerScroll || 0);
+        const y = 254 + i * 62 - (this.pickerScroll || 0);
         S.rr(ctx, 46, y, 448, 54, 10); ctx.fillStyle = '#2a2340'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = DH.RARITIES[g.rarity].color; ctx.stroke();
         ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[g.rarity].color; ctx.fillText(DH.gearLabel(g), 60, y + 18);
         ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.gearStatLabel(g) + (g.heroId ? `　專屬：${DH.HEROES[g.heroId].name}·${DH.HEROES[g.heroId].cls}` : ''), 60, y + 38);

@@ -62,7 +62,14 @@
       this.support = def.support ? DH.PATTERNS[def.support] : null;
       this.level = def.level || 1; this.stars = def.stars; this.weaponRarity = def.weaponRarity || null;
       this.instance = def.instance || null;
+      this.sig = def.sig || null;
+      this.rage = 0; this.wasHit = false; this.lifeSaved = false; this.swapBuff = 0; this.iceBuff = 0; this.onFire = false;
     }
+    hasSig(key) { return !!(this.sig && this.sig.trait && this.sig.trait.key === key); }
+    sigParam(i) { return this.sig && this.sig.trait ? this.sig.trait.params[i] : 0; }
+    sigPct(i) { return this.sig ? this.sigParam(i) * this.sig.scale / 100 : 0; }
+    get sigSpecies() { return this.sig ? this.sig.species : null; }
+    get flying() { return this.has('flying'); }
   }
   class Monster extends Unit {
     constructor(id, pos) {

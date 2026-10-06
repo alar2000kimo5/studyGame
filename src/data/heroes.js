@@ -2,12 +2,13 @@
 //   每個職業有一份模板（攻擊模式、輔助模式、職業天賦、天賦池、武器、外觀、隊長加成、基礎屬性）
 //   每位英雄再指定名字、種族、顏色、星級、髮型髮色膚色與介紹；屬性依星級放大
 (function (DH) {
-  DH.SPECIES = { human: '人類', elf: '精靈', dwarf: '矮人', orc: '獸人', dragonkin: '龍裔', halfling: '半身人' };
+  DH.SPECIES = { human: '人類', elf: '精靈', dwarf: '矮人', orc: '獸人', dragonkin: '龍裔', halfling: '半身人', angel: '天使' };
+  DH.SPECIES_DESC = { human: '適應力強', elf: '敏捷、射術精準', dwarf: '堅韌的工匠', orc: '蠻力與嗜血', dragonkin: '龍之血脈', halfling: '幸運的小個子', angel: '飛行：無視冰、火、泥與河川（不能穿牆）' };
   const SPECIES_KEYS = ['human', 'elf', 'dwarf', 'orc', 'dragonkin', 'halfling'];
   const ELEMENT_KEYS = ['red', 'green', 'blue', 'light', 'dark'];
   // 種族外觀特徵
   const SPECIES_LOOK = {
-    human: {}, elf: { ears: true }, dwarf: { beard: true, stout: true }, orc: { tusks: true }, dragonkin: { horns: true }, halfling: { small: true },
+    human: {}, elf: { ears: true }, dwarf: { beard: true, stout: true }, orc: { tusks: true }, dragonkin: { horns: true }, halfling: { small: true }, angel: { wings: true, halo: true },
   };
   const SPECIES_SKIN = {
     human: ['#f3c9a6', '#e8b48e', '#d9a97c', '#f6d2b4', '#c98f6a'],
@@ -16,6 +17,7 @@
     orc: ['#6f9a5a', '#5f8f4a', '#7aa06a', '#8a9a60', '#5a7a4a'],
     dragonkin: ['#9fc8e8', '#d87a5a', '#8fbf9a', '#d9b0e0', '#e0c080'],
     halfling: ['#d9a97c', '#f6d6bc', '#e8c0a0', '#f0cfb0', '#c9a080'],
+    angel: ['#fbe9dc', '#f8e0d0', '#fdf0e6', '#f6dcc8', '#f0d4c0'],
   };
   const HAIR_COLORS = ['#c9a04a', '#5a3220', '#d8742c', '#e8e8f0', '#f3e3b0', '#2a2430', '#1e1410', '#4e7a2e', '#4a2a6a', '#8c3a2a', '#f4c35a', '#2a4a8a', '#3a1a10', '#b03a5a', '#7a7a8a'];
   const HAIR_STYLES = ['short', 'long', 'spiky', 'ponytail', 'mohawk'];
@@ -61,6 +63,7 @@
       ['archer3', '韋恩', 'human', 'red', 3, 'short', 1, 2, '前皇家獵場看守，專打會動的東西。'],
       ['archer4', '薇拉', 'dragonkin', 'blue', 4, 'long', 11, 0, '龍裔神射手，箭矢出手時會帶一道藍焰。', { beard: false }],
       ['archer5', '索林', 'dwarf', 'dark', 5, 'spiky', 6, 3, '矮人長弓大師，弓是用整根礦坑支柱做的。'],
+      ['archer6', '露米娜', 'angel', 'blue', 3, 'ponytail', 3, 2, '天使弓手，從空中射下的箭帶著光。', { beard: false }],
     ],
     mage: [
       ['mage', '梅林', 'human', 'blue', 3, 'long', 3, 1, '塔裡最老的法師，鬍子裡藏著三本沒還的書。', { beard: true }],
@@ -68,6 +71,7 @@
       ['mage3', '艾瑟', 'elf', 'light', 2, 'long', 3, 3, '精靈光術士，念咒時整個人會微微發亮。'],
       ['mage4', '祖格', 'orc', 'green', 4, 'mohawk', 5, 2, '獸人裡少見的法師，咒語喊得比誰都大聲。'],
       ['mage5', '阿斯特拉', 'dragonkin', 'dark', 5, 'spiky', 8, 3, '龍裔大法師，據說能把星星拉下來當武器。'],
+      ['mage6', '艾瑟瑞', 'angel', 'red', 4, 'spiky', 10, 0, '天使法師，晨星的光芒是他的法術來源。'],
     ],
     cleric: [
       ['cleric', '瑟拉', 'human', 'light', 3, 'long', 4, 3, '修道院派來的治療師，禱告比誰都快。'],
@@ -75,6 +79,7 @@
       ['cleric3', '歐里', 'dwarf', 'blue', 2, 'short', 7, 0, '矮人牧師，用啤酒祝福傷口，意外地有效。'],
       ['cleric4', '莉莎貝', 'elf', 'red', 4, 'long', 10, 2, '精靈高階祭司，治療術帶著玫瑰香氣。'],
       ['cleric5', '烏爾加', 'orc', 'dark', 5, 'mohawk', 5, 3, '獸人薩滿牧師，歌聲低沉卻能讓骨頭重新長好。'],
+      ['cleric6', '奧瑞爾', 'angel', 'light', 4, 'short', 4, 1, '天使牧師，聖歌一響，連怪物都會短暫安靜。'],
     ],
     rogue: [
       ['rogue', '奇洛', 'halfling', 'dark', 3, 'short', 5, 0, '半身人盜賊，手腳比話還快，從不解釋錢包去哪了。'],
@@ -96,6 +101,7 @@
       ['paladin3', '布羅姆', 'dwarf', 'dark', 2, 'short', 1, 2, '矮人聖騎士，鬍子裡編著聖徽。'],
       ['paladin4', '艾拉妮', 'elf', 'green', 3, 'ponytail', 3, 0, '精靈聖騎士，治療時盾牌會散發柔光。', { beard: false }],
       ['paladin5', '格拉斯', 'dragonkin', 'red', 5, 'spiky', 10, 1, '龍裔聖騎，信仰與火焰同樣熾熱。'],
+      ['paladin6', '瑟菈菲', 'angel', 'light', 5, 'long', 3, 0, '天界派來的聖騎士，翅膀比盾牌更常拿來擋攻擊。', { beard: false }],
     ],
     druid: [
       ['druid', '歐文', 'elf', 'green', 3, 'long', 7, 2, '會和樹說話的精靈，樹通常不回答。'],
@@ -131,6 +137,7 @@
       ['princess3', '艾爾瑞', 'elf', 'blue', 2, 'long', 3, 0, '精靈王女，離家出走來體驗冒險。'],
       ['princess4', '布琳希', 'dwarf', 'red', 3, 'long', 0, 1, '矮人山脈的公主，王冠是純鐵打的。', { beard: false }],
       ['princess5', '夜焰', 'dragonkin', 'dark', 4, 'long', 8, 3, '龍裔公主，守護結界由黑焰構成。'],
+      ['princess6', '天霓', 'angel', 'green', 5, 'long', 4, 3, '天界的公主，結界的形狀像一對展開的翅膀。'],
     ],
     elementalist: [
       ['elementalist', '澤恩', 'dragonkin', 'blue', 5, 'spiky', 11, 0, '龍裔元素使，八個方向同時起火不是意外，是風格。'],
@@ -158,7 +165,7 @@
       HEROES[id] = {
         id, name, cls: tpl.cls, element, species, stars, pattern: tpl.pattern, support: tpl.support || null,
         hp: Math.round(tpl.hp * k), atk: Math.round(tpl.atk * k), def: tpl.def + 2 * (stars - 1),
-        talents: [tpl.classTalent].concat(tpl.pool), ascendedTalent: 'ascended_power',
+        talents: [tpl.classTalent].concat(tpl.pool), ascendedTalent: 'ascended_power', innate: species === 'angel' ? ['flying'] : [],
         leader: tpl.leader, flavor, look, classKey: key,
       };
     });

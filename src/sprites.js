@@ -149,6 +149,17 @@
     if (look.stout) { ctx.translate(0, 2); ctx.scale(1.08, 0.93); }
     const tunic = el.color, tunicD = el.dark;
 
+    // 天使翅膀（身體後方）
+    if (look.wings) {
+      const flap = Math.sin(t * 3 + hero.uid) * 0.12;
+      for (const s of [-1, 1]) {
+        ctx.save(); ctx.translate(s * 10, -4); ctx.rotate(s * (0.15 + flap));
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(s * 22, -30, s * 34, -12); ctx.quadraticCurveTo(s * 26, -8, s * 30, 4); ctx.quadraticCurveTo(s * 20, 2, s * 22, 14); ctx.quadraticCurveTo(s * 10, 8, 0, 10); ctx.closePath();
+        fillStroke(ctx, '#fbf6ff', OUTLINE, 2);
+        ctx.beginPath(); ctx.moveTo(s * 4, 2); ctx.quadraticCurveTo(s * 18, -14, s * 28, -8); ctx.lineWidth = 1.2; ctx.strokeStyle = '#d8ccf0'; ctx.stroke();
+        ctx.restore();
+      }
+    }
     // 腿與靴
     for (const s of [-1, 1]) { rr(ctx, s * 7 - 5, 10, 10, 11, 3); fillStroke(ctx, '#3a2f3f', OUTLINE, 1.5); rr(ctx, s * 7 - 6, 17, 12, 7, 3); fillStroke(ctx, '#5a3a24', OUTLINE, 1.5); }
     // 身體
@@ -208,6 +219,7 @@
         circ(ctx, 0, hy - 20, 2.5); ctx.fillStyle = '#fff3a0'; ctx.fill();
       }
     }
+    if (look.halo) { ctx.save(); ctx.globalAlpha = 0.85; ell(ctx, 0, hy - hr - 8 + Math.sin(t * 2) * 1.5, 13, 4); ctx.lineWidth = 3; ctx.strokeStyle = '#ffe88a'; ctx.stroke(); ctx.globalAlpha = 0.4; ctx.lineWidth = 6; ctx.stroke(); ctx.restore(); }
     if (hero.shieldHp > 0) { ctx.globalAlpha = 0.45 + 0.15 * Math.sin(t * 5); ell(ctx, 0, -2, 26, 32); ctx.lineWidth = 3; ctx.strokeStyle = '#8fd8ff'; ctx.stroke(); ctx.globalAlpha = 1; }
     ctx.restore();
   };

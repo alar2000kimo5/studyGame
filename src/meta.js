@@ -49,7 +49,16 @@
     maxLevel(h) { return h.ascended ? MAX_LEVEL_ASC : MAX_LEVEL; }
     xpToNext(h) { return Math.round(12 * Math.pow(h.level, 1.25) * (1 + 0.25 * h.stars)); }
     talentList(h) { const d = this.def(h); const list = d.talents.slice(0, 1 + h.stars); if (h.ascended) list.push(d.ascendedTalent); return list; }
-    unlockedTalents(h) { const list = this.talentList(h); const n = Math.min(h.unlocked, list.length) + (h.ascended ? 1 : 0); return list.slice(0, Math.min(n, list.length)); }
+    sigOf(h) { const g = h.gear.weapon; return g && g.rarity === 'signature' && g.heroId === h.id ? g : null; }
+    unlockedTalents(h) {
+      const list = this.talentList(h), d = this.def(h);
+      let n = Math.min(h.unlocked, list.length) + (h.ascended ? 1 : 0);
+      const sig = this.sigOf(h);
+      if (sig && d.species === 'human') n += 1;   // 多才：額外天賦槽
+      let out = list.slice(0, Math.min(n, list.length)).concat(d.innate || []);
+      if (sig) { const t = DH.sigTraitFor(h.id); if (t && t.key === 'grant' && !out.includes(t.params[0])) out.push(t.params[0]); }
+      return out;
+    }
     nextTalent(h) { const list = this.def(h).talents.slice(0, 1 + h.stars); return h.unlocked < list.length ? list[h.unlocked] : null; }
     talentCost(h) { return h.stars; }
     gearCount(h) { return Object.keys(h.gear).length; }
@@ -68,10 +77,25 @@
       if (tal.includes('iron_skin')) def += 15;
       if (tal.includes('ascended_power')) { atk *= 1.15; hp *= 1.15; }
       for (const g of Object.values(h.gear)) {
-        if (g.stat === 'atk') atk *= 1 + g.pct; else if (g.stat === 'hp') hp *= 1 + g.pct; else def += Math.round(g.pct * 100);
-        if (g.bonus) { if (g.bonus.atk) atk *= 1 + g.bonus.atk; if (g.bonus.hp) hp *= 1 + g.bonus.hp; if (g.bonus.def) def += Math.round(g.bonus.def * 100); }
+        const e = DH.gearEffective(g);
+        if (g.stat === 'atk') atk *= 1 + e.pct; else if (g.stat === 'hp') hp *= 1 + e.pct; else def += Math.round(e.pct * 100);
+        if (e.bonus) { if (e.bonus.atk) atk *= 1 + e.bonus.atk; if (e.bonus.hp) hp *= 1 + e.bonus.hp; if (e.bonus.def) def += Math.round(e.bonus.def * 100); }
+      }
+      const sig = this.sigOf(h);
+      if (sig) {
+        const sc = DH.sigScale(sig.level);
+        if (d.species === 'dwarf') def += Math.round(20 * sc);
+        const t = DH.sigTraitFor(h.id);
+        if (t && t.key === 'def_to_atk') atk *= 1 + (def / 10) * (t.params[0] * sc) / 100;
       }
       if (leaderBonus) { atk *= 1 + (leaderBonus.atk || 0); def += Math.round((leaderBonus.def || 0) * 100); }
+      // 隊友專武的全隊加成
+      if (this.d.team.includes(h.uid)) for (const o of this.teamHeroes()) {
+        const og = this.sigOf(o); if (!og) continue; const ot = DH.sigTraitFor(o.id); if (!ot) continue;
+        const osc = DH.sigScale(og.level);
+        if (ot.key === 'team_atk') atk *= 1 + ot.params[0] * osc / 100;
+        if (ot.key === 'team_def') def += Math.round(ot.params[0] * osc);
+      }
       return { hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def) };
     }
     power(h) { const s = this.stats(h); return Math.round(s.atk * 3 + s.hp / 2 + s.def * 2); }
@@ -99,6 +123,13 @@
       h.gear[gear.slot] = gear; this.save(); return true;
     }
     unequip(h, slot) { const g = h.gear[slot]; if (!g) return; delete h.gear[slot]; this.d.gear.push(g); this.save(); }
+    sigMaterials(h, gear) { return this.d.gear.filter(g => g.rarity === 'signature' && g.heroId === gear.heroId && g.uid !== gear.uid); }
+    upgradeSignature(h, gear) {
+      if (gear.rarity !== 'signature' || (gear.level || 1) >= DH.SIG_LEVEL_MAX) return false;
+      const mat = this.sigMaterials(h, gear)[0]; if (!mat) return false;
+      this.d.gear = this.d.gear.filter(g => g.uid !== mat.uid);
+      gear.level = (gear.level || 1) + 1; this.save(); return true;
+    }
     sellGear(gear) { this.d.gear = this.d.gear.filter(g => g.uid !== gear.uid); this.d.gold += Math.round(DH.RARITIES[gear.rarity].price * 0.4); this.save(); }
     // ── 昇華 ─────────────────────────────────────────
     ascendReq(h) { return { level: ASCEND_LEVEL[h.stars], gold: ASCEND_GOLD[h.stars], gear: this.requiredGear(h) }; }
@@ -126,13 +157,22 @@
     teamHeroes() { return this.d.team.map(u => this.hero(u)).filter(Boolean); }
     leaderBonusFor(h) {
       const leader = this.teamHeroes()[0]; if (!leader) return null;
-      const ld = this.def(leader); if (ld.element !== this.def(h).element) return null;
+      const ld = this.def(leader);
+      if (ld.element !== this.def(h).element && !(ld.species === 'human' && this.sigOf(leader))) return null;
       return ld.leader;
     }
     // 建立戰鬥用英雄定義
     buildBattleDef(h) {
       const d = this.def(h), s = this.stats(h, this.leaderBonusFor(h));
-      return Object.assign({}, d, { hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null });
+      const sigGear = this.sigOf(h);
+      let pattern = d.pattern, sig = null;
+      if (sigGear) {
+        const t = DH.sigTraitFor(h.id);
+        sig = { species: d.species, level: sigGear.level || 1, scale: DH.sigScale(sigGear.level), trait: t, name: sigGear.name };
+        if (t && t.key === 'pattern_all') pattern = DH.PATTERNS[d.pattern].kind + '_all';
+        if (t && t.key === 'range_pierce' && DH.PATTERNS[d.pattern].kind === 'ranged') pattern = d.pattern.replace('ranged', 'magic');
+      }
+      return Object.assign({}, d, { pattern, hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, sig });
     }
     // ── 召喚 ─────────────────────────────────────────
     summonCost() { return SUMMON_COST; }

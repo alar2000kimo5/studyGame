@@ -28,17 +28,17 @@
   const SIGNATURE_NAMES = {
     knight:       ['誓約之劍', '礦心重劍', '銀葉騎士劍', '背棄者之刃', '龍息聖劍'],
     warrior:      ['礦坑劈斧', '磨刀石戰斧', '蠻顎雙斧', '逆族月斧', '不滅火紋斧'],
-    archer:       ['林語長弓', '矮影短弓', '獵場硬弓', '藍焰龍弓', '支柱巨弓'],
-    mage:         ['藏書杖', '焦餐法杖', '微光杖', '吼咒圖騰杖', '摘星杖'],
-    cleric:       ['晨禱錘', '繃帶錘', '麥酒聖錘', '玫瑰祝福錘', '骨歌錘'],
+    archer:       ['林語長弓', '矮影短弓', '獵場硬弓', '藍焰龍弓', '支柱巨弓', '光羽弓'],
+    mage:         ['藏書杖', '焦餐法杖', '微光杖', '吼咒圖騰杖', '摘星杖', '晨星杖'],
+    cleric:       ['晨禱錘', '繃帶錘', '麥酒聖錘', '玫瑰祝福錘', '骨歌錘', '聖歌錘'],
     rogue:        ['無聲雙刃', '順手匕首', '影語刺刀', '巨影雙刃', '雙生暗刃'],
     barbarian:    ['破門巨棒', '凍土棍', '拔根樹棍', '不合理巨棒', '推山王棍'],
-    paladin:      ['刻名聖錘', '兒童尺寸聖錘', '聖徽鬚錘', '柔光盾錘', '熾信聖錘'],
+    paladin:      ['刻名聖錘', '兒童尺寸聖錘', '聖徽鬚錘', '柔光盾錘', '熾信聖錘', '天啟聖錘'],
     druid:        ['不語樹杖', '松鼠杖', '蘑菇杖', '沼澤慢杖', '開花龍鱗杖'],
     witch:        ['大鍋攪杖', '低飛掃帚杖', '月巫杖', '三炸爐杖', '血巫杖'],
     hunter:       ['斜角弩弓', '邊境獵弓', '獵首弓', '嗅跡追獵弓', '矛盾獵龍弓'],
     bard:         ['走音魯特琴', '三首歌之琴', '忘痛琴', '崩坑戰歌琴', '龍吟琴'],
-    princess:     ['布陣權杖', '投票權杖', '出走王女杖', '純鐵王冠杖', '黑焰結界杖'],
+    princess:     ['布陣權杖', '投票權杖', '出走王女杖', '純鐵王冠杖', '黑焰結界杖', '天界翼杖'],
     elementalist: ['八方火球', '室內雨之球', '心情光球', '脾氣火球', '走動影球'],
     guardian:     ['不動戰錘', '高過本人之錘', '排隊守門錘', '荊棘巨錘', '推不開之錘'],
   };
@@ -65,12 +65,15 @@
     return (SIGNATURE_NAMES[d.classKey] || [])[idx] || `${d.name}的專屬武器`;
   };
   DH.makeSignature = function (heroId) {
-    return { uid: newUid(), slot: 'weapon', rarity: 'signature', name: DH.signatureName(heroId), stat: 'atk', pct: 0.20, bonus: { hp: 0.10 }, heroId };
+    return { uid: newUid(), slot: 'weapon', rarity: 'signature', name: DH.signatureName(heroId), stat: 'atk', pct: 0.20, bonus: { hp: 0.10 }, heroId, level: 1 };
   };
-  DH.gearLabel = g => `${DH.RARITIES[g.rarity].name}·${g.name}`;
+  DH.gearLabel = g => `${DH.RARITIES[g.rarity].name}·${g.name}${g.rarity === 'signature' ? ` Lv.${g.level || 1}` : ''}`;
+  // 專武依等級的實際數值
+  DH.gearEffective = g => g.rarity === 'signature' ? { pct: DH.sigBasePct(g.level), bonus: { hp: DH.sigHpPct(g.level) } } : { pct: g.pct, bonus: g.bonus };
   DH.gearStatLabel = g => {
-    const main = `${{ atk: '攻擊', hp: '生命', def: '防禦' }[g.stat]} +${Math.round(g.pct * 100)}%`;
-    if (g.bonus) return main + Object.entries(g.bonus).map(([k, v]) => `、${{ atk: '攻擊', hp: '生命', def: '防禦' }[k]} +${Math.round(v * 100)}%`).join('');
+    const e = DH.gearEffective(g);
+    const main = `${{ atk: '攻擊', hp: '生命', def: '防禦' }[g.stat]} +${Math.round(e.pct * 100)}%`;
+    if (e.bonus) return main + Object.entries(e.bonus).map(([k, v]) => `、${{ atk: '攻擊', hp: '生命', def: '防禦' }[k]} +${Math.round(v * 100)}%`).join('');
     return main;
   };
   DH.RARITY_ORDER = RARITY_ORDER;
