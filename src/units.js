@@ -1,0 +1,62 @@
+// 單位：英雄與怪物
+(function (DH) {
+  const G = DH.Grid;
+  let nextUid = 1;
+
+  class Unit {
+    constructor(def, pos, side) {
+      this.uid = nextUid++;
+      this.def = def; this.id = def.id; this.name = def.name;
+      this.side = side;                     // 'hero' | 'monster'
+      this.element = def.element;
+      this.pattern = DH.PATTERNS[def.pattern];
+      this.maxHp = def.hp; this.hp = def.hp;
+      this.atk = def.atk; this.armor = def.armor || 0;
+      this.talents = def.talents.slice();
+      this.col = pos[0]; this.row = pos[1];
+      this.alive = true;
+      this.status = {};                     // poison:{turns,dmg}, burn:{turns,dmg}
+      // 畫面
+      const c = G.cellCenter(this.col, this.row);
+      this.x = c.x; this.y = c.y;           // 目前顯示位置（插值）
+      this.offX = 0; this.offY = 0;         // 攻擊位移
+      this.scale = 1; this.alpha = 1;
+      this.flash = 0; this.dropY = 0;
+      this.lifted = false;
+    }
+    get pos() { return [this.col, this.row]; }
+    has(t) { return this.talents.includes(t); }
+    setCell(c, r) { this.col = c; this.row = r; }
+    snap() { const c = G.cellCenter(this.col, this.row); this.x = c.x; this.y = c.y; }
+    takeDamage(n) {
+      this.hp = Math.max(0, this.hp - n);
+      this.flash = 0.25;
+      if (this.hp === 0) this.alive = false;
+    }
+    heal(n) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); return this.hp - before; }
+    get hpRatio() { return this.hp / this.maxHp; }
+    update(dt) {
+      if (!this.lifted) {
+        const c = G.cellCenter(this.col, this.row);
+        const k = Math.min(1, dt * 14);
+        this.x += (c.x - this.x) * k; this.y += (c.y - this.y) * k;
+        if (Math.abs(c.x - this.x) < 0.5) this.x = c.x;
+        if (Math.abs(c.y - this.y) < 0.5) this.y = c.y;
+      }
+      this.flash = Math.max(0, this.flash - dt);
+      if (this.dropY > 0) this.dropY = Math.max(0, this.dropY - dt * 900);
+      if (!this.alive && this.alpha > 0) this.alpha = Math.max(0, this.alpha - dt * 2.5);
+    }
+  }
+
+  class Hero extends Unit {
+    constructor(id, pos) { super(DH.HEROES[id], pos, 'hero'); this.cls = this.def.cls; this.look = this.def.look; this.order = 0; }
+  }
+  class Monster extends Unit {
+    constructor(id, pos) {
+      super(DH.MONSTERS[id], pos, 'monster');
+      this.speed = this.def.speed; this.ai = this.def.ai; this.shape = this.def.shape; this.boss = !!this.def.boss;
+    }
+  }
+  DH.Unit = Unit; DH.Hero = Hero; DH.Monster = Monster;
+})(window.DH);
