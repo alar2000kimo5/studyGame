@@ -34,9 +34,39 @@
   }
 
   // ───────────────────────── 英雄 ─────────────────────────
-  function drawWeapon(ctx, kind, x, y, el, t) {
-    const gold = '#e6b84a', steel = '#cfd6e2', steelDark = '#8b95a6', wood = '#8a5a30';
+  const RARITY_GLOW = { magic: '#5aa0ff', epic: '#b464ff', mythic: '#ff7a3a', legendary: '#ffd24a' };
+  function drawWeapon(ctx, kind, x, y, el, t, rarity) {
+    const gold = '#e6b84a', steel = rarity ? { magic: '#cfe0ff', epic: '#e6ccff', mythic: '#ffd2b0', legendary: '#fff0b0' }[rarity] : '#cfd6e2', steelDark = '#8b95a6', wood = '#8a5a30';
+    if (rarity) {
+      const g = RARITY_GLOW[rarity];
+      ctx.save(); ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 4); ctx.shadowColor = g; ctx.shadowBlur = 14;
+      circ(ctx, x + 17, y - 12, 12); ctx.fillStyle = g; ctx.fill(); ctx.restore();
+    }
     switch (kind) {
+      case 'lute':
+        ctx.save(); ctx.translate(x + 18, y + 2); ctx.rotate(-0.5);
+        ell(ctx, 0, 6, 9, 11); fillStroke(ctx, '#b07a3a', OUTLINE, 1.5);
+        rr(ctx, -2, -22, 4, 24, 2); fillStroke(ctx, '#6a4424', OUTLINE, 1.5);
+        circ(ctx, 0, 6, 3); ctx.fillStyle = '#3a2410'; ctx.fill();
+        for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * 1.5, -20); ctx.lineTo(i * 1.5, 12); ctx.lineWidth = 0.8; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+        ctx.restore(); break;
+      case 'scepter':
+        ctx.save(); ctx.translate(x + 17, y + 3); ctx.rotate(-0.15);
+        rr(ctx, -2, -24, 4, 30, 2); fillStroke(ctx, gold, OUTLINE, 1.5);
+        ctx.beginPath(); ctx.moveTo(0, -34); ctx.lineTo(6, -26); ctx.lineTo(0, -18); ctx.lineTo(-6, -26); ctx.closePath(); fillStroke(ctx, el.color, OUTLINE, 1.5);
+        ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 4); circ(ctx, 0, -26, 9); ctx.fillStyle = el.light; ctx.fill(); ctx.restore(); break;
+      case 'hammer':
+        ctx.save(); ctx.translate(x + 19, y + 4); ctx.rotate(-0.25);
+        rr(ctx, -2.5, -26, 5, 34, 2); fillStroke(ctx, wood, OUTLINE, 1.5);
+        rr(ctx, -9, -34, 18, 12, 3); fillStroke(ctx, steel, OUTLINE, 1.5);
+        rr(ctx, -9, -34, 18, 4, 2); ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fill(); ctx.restore(); break;
+      case 'orb': {
+        for (const s of [-1, 1]) {
+          const ox = x + s * 22, oy = y - 6 + Math.sin(t * 3 + s) * 4;
+          ctx.save(); ctx.globalAlpha = 0.5; circ(ctx, ox, oy, 9); ctx.fillStyle = el.light; ctx.fill(); ctx.globalAlpha = 1;
+          circ(ctx, ox, oy, 5.5); fillStroke(ctx, el.color, OUTLINE, 1.5); circ(ctx, ox - 2, oy - 2, 1.8); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+        } break;
+      }
       case 'sword':
         ctx.save(); ctx.translate(x + 17, y + 2); ctx.rotate(-0.25);
         rr(ctx, -2.5, -26, 5, 26, 2); fillStroke(ctx, steel, OUTLINE, 1.5);
@@ -127,10 +157,12 @@
     if (look.warpaint) { rr(ctx, -15, -6, 30, 22, 8); ctx.fillStyle = look.skin; ctx.fill(); rr(ctx, -15, 4, 30, 10, 4); ctx.fillStyle = tunicD; ctx.fill(); }
     // 手臂
     for (const s of [-1, 1]) { circ(ctx, s * 16, 4, 5.5); fillStroke(ctx, look.skin, OUTLINE, 1.5); }
+    // 大盾
+    if (look.bigShield) { ctx.save(); ctx.translate(-22, 2); rr(ctx, -11, -16, 22, 32, 8); fillStroke(ctx, '#8a93a6', OUTLINE, 2); rr(ctx, -7, -12, 14, 24, 5); ctx.fillStyle = el.color; ctx.fill(); rr(ctx, -9, -14, 6, 10, 3); ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fill(); ctx.restore(); }
     // 盾
     if (look.shield) { ctx.save(); ctx.translate(-20, 4); circ(ctx, 0, 0, 10); fillStroke(ctx, '#a9b4c4', OUTLINE, 2); circ(ctx, 0, 0, 5.5); ctx.fillStyle = el.color; ctx.fill(); ctx.restore(); }
     // 武器
-    drawWeapon(ctx, look.weapon, 0, 0, el, t);
+    drawWeapon(ctx, look.weapon, 0, 0, el, t, hero.weaponRarity);
     // 頭
     const hy = -17, hr = 15;
     circ(ctx, 0, hy, hr); fillStroke(ctx, look.skin, OUTLINE, 2);
@@ -144,6 +176,8 @@
     // 嘴 & 臉紅
     ctx.beginPath(); ctx.arc(0, hy + 7, 3.5, 0.2, Math.PI - 0.2); ctx.lineWidth = 1.5; ctx.strokeStyle = '#7a3a3a'; ctx.stroke();
     ctx.globalAlpha = 0.35; circ(ctx, -9, hy + 6, 3); ctx.fillStyle = '#ff7a7a'; ctx.fill(); circ(ctx, 9, hy + 6, 3); ctx.fill(); ctx.globalAlpha = 1;
+    // 角（龍裔）
+    if (look.horns) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 9, hy - 10); ctx.quadraticCurveTo(s * 18, hy - 18, s * 13, hy - 28); ctx.quadraticCurveTo(s * 15, hy - 16, s * 13, hy - 8); ctx.closePath(); fillStroke(ctx, '#f3d27a', OUTLINE, 1.5); }
     // 頭髮 / 頭飾
     if (look.helmet) {
       ctx.beginPath(); ctx.arc(0, hy - 1, hr + 2, Math.PI, 0); ctx.lineTo(hr + 2, hy + 3); ctx.lineTo(-hr - 2, hy + 3); ctx.closePath(); fillStroke(ctx, '#b9c3d3', OUTLINE, 2);
@@ -157,12 +191,20 @@
       rr(ctx, -5, hy - hr - 1, 10, 4, 1); ctx.fillStyle = el.color; ctx.fill();
     } else {
       drawHair(ctx, look, 0, hy, hr);
+      if (look.antlers) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 8, hy - 12); ctx.lineTo(s * 14, hy - 28); ctx.moveTo(s * 11, hy - 20); ctx.lineTo(s * 18, hy - 24); ctx.lineWidth = 3.5; ctx.strokeStyle = OUTLINE; ctx.lineCap = 'round'; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = '#a8763a'; ctx.stroke(); }
+      if (look.witchHat) {
+        ctx.beginPath(); ctx.moveTo(-hr - 8, hy - 5); ctx.lineTo(hr + 8, hy - 5); ctx.lineTo(hr - 1, hy - 10); ctx.quadraticCurveTo(6, hy - 30, 12, hy - hr - 24); ctx.quadraticCurveTo(-2, hy - 28, -hr + 1, hy - 10); ctx.closePath(); fillStroke(ctx, '#2e2240', OUTLINE, 2);
+        rr(ctx, -hr + 1, hy - 11, hr * 2 - 2, 4, 1); ctx.fillStyle = el.color; ctx.fill();
+      }
+      if (look.beret) { ctx.beginPath(); ctx.ellipse(-2, hy - hr + 2, hr + 3, 7, -0.2, 0, Math.PI * 2); fillStroke(ctx, el.dark, OUTLINE, 2); ctx.beginPath(); ctx.moveTo(hr - 2, hy - hr); ctx.lineTo(hr + 10, hy - hr - 14); ctx.lineTo(hr + 4, hy - hr + 2); ctx.closePath(); fillStroke(ctx, '#e2483c', OUTLINE, 1.5); }
+      if (look.crown) { ctx.beginPath(); ctx.moveTo(-10, hy - hr + 2); ctx.lineTo(-10, hy - hr - 10); ctx.lineTo(-5, hy - hr - 4); ctx.lineTo(0, hy - hr - 13); ctx.lineTo(5, hy - hr - 4); ctx.lineTo(10, hy - hr - 10); ctx.lineTo(10, hy - hr + 2); ctx.closePath(); fillStroke(ctx, '#e6b84a', OUTLINE, 1.5); circ(ctx, 0, hy - hr - 4, 2); ctx.fillStyle = el.color; ctx.fill(); }
       if (look.hat) {
         ctx.beginPath(); ctx.moveTo(-hr - 6, hy - 6); ctx.lineTo(hr + 6, hy - 6); ctx.lineTo(hr - 2, hy - 10); ctx.lineTo(3, hy - hr - 22); ctx.lineTo(-hr + 2, hy - 10); ctx.closePath(); fillStroke(ctx, el.dark, OUTLINE, 2);
         rr(ctx, -hr + 1, hy - 12, hr * 2 - 2, 4, 1); ctx.fillStyle = '#e6b84a'; ctx.fill();
         circ(ctx, 0, hy - 20, 2.5); ctx.fillStyle = '#fff3a0'; ctx.fill();
       }
     }
+    if (hero.shieldHp > 0) { ctx.globalAlpha = 0.45 + 0.15 * Math.sin(t * 5); ell(ctx, 0, -2, 26, 32); ctx.lineWidth = 3; ctx.strokeStyle = '#8fd8ff'; ctx.stroke(); ctx.globalAlpha = 1; }
     ctx.restore();
   };
 

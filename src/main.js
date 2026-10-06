@@ -1,4 +1,4 @@
-// 主程式：畫布縮放、輸入、場景切換、主迴圈
+// 主程式：畫布縮放、輸入、場景切換、主迴圈、玩家資料
 (function (DH) {
   const C = DH.CONFIG;
   DH.FONT = '"Noto Sans TC","Microsoft JhengHei","PingFang TC","Heiti TC","WenQuanYi Zen Hei",sans-serif';
@@ -6,8 +6,8 @@
   class Game {
     constructor(canvas) {
       this.canvas = canvas; this.ctx = canvas.getContext('2d');
-      this.scale = 1; this.offX = 0; this.offY = 0;
-      this.progress = this.loadProgress();
+      this.scale = 1; this.dpr = 1;
+      this.meta = new DH.Meta();
       this.unlockAll = /unlock/.test(location.hash);
       this.scene = null;
       this.resize(); window.addEventListener('resize', () => this.resize());
@@ -16,6 +16,7 @@
       this.last = performance.now();
       requestAnimationFrame(t => this.frame(t));
     }
+    get progress() { return { stars: this.meta.d.stars }; }
     resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const vw = window.innerWidth, vh = window.innerHeight;
@@ -25,10 +26,7 @@
       this.canvas.width = Math.floor(cw * dpr); this.canvas.height = Math.floor(ch * dpr);
       this.dpr = dpr;
     }
-    toLogical(e) {
-      const r = this.canvas.getBoundingClientRect();
-      return [(e.clientX - r.left) / this.scale, (e.clientY - r.top) / this.scale];
-    }
+    toLogical(e) { const r = this.canvas.getBoundingClientRect(); return [(e.clientX - r.left) / this.scale, (e.clientY - r.top) / this.scale]; }
     bindInput() {
       const cv = this.canvas;
       cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const [x, y] = this.toLogical(e); this.scene.pointerDown(x, y); });
@@ -37,11 +35,20 @@
       cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
       cv.addEventListener('contextmenu', e => e.preventDefault());
     }
-    showCampaign() { if (this.scene && this.scene.dead !== undefined) this.scene.dead = true; this.scene = new DH.Campaign(this); }
-    startDungeon(d) { if (this.scene && this.scene.dead !== undefined) this.scene.dead = true; this.scene = new DH.Battle(this, d); }
+    _switch(scene) { if (this.scene && this.scene.dead !== undefined) this.scene.dead = true; this.scene = scene; }
+    show(key) { ({ campaign: () => this.showCampaign(), barracks: () => this.showBarracks(), summon: () => this.showSummon(), shop: () => this.showShop() })[key](); }
+    showCampaign() { this._switch(new DH.Campaign(this)); }
+    showBarracks() { this._switch(new DH.Barracks(this)); }
+    showHeroCard(uid, back) { this._switch(new DH.HeroCard(this, uid, back || (() => this.showBarracks()))); }
+    showTeam(dungeon) { this._switch(new DH.TeamSelect(this, dungeon)); }
+    showSummon() { this._switch(new DH.Summon(this)); }
+    showShop() { this._switch(new DH.Shop(this)); }
+    startDungeon(d) {
+      const defs = this.meta.teamHeroes().map(h => this.meta.buildBattleDef(h));
+      this._switch(new DH.Battle(this, d, defs));
+    }
+    onVictory(dungeon, stars) { const r = this.meta.rewardFor(dungeon, stars); this.meta.applyReward(dungeon, stars, r); return r; }
     nextDungeon(id) { return DH.DUNGEONS.find(d => d.id === id + 1) || null; }
-    loadProgress() { try { const p = JSON.parse(localStorage.getItem('dh_progress') || '{}'); return { stars: p.stars || {} }; } catch (e) { return { stars: {} }; } }
-    saveStars(id, n) { this.progress.stars[id] = Math.max(this.progress.stars[id] || 0, n); try { localStorage.setItem('dh_progress', JSON.stringify(this.progress)); } catch (e) {} }
     frame(t) {
       const dt = Math.min(0.05, (t - this.last) / 1000); this.last = t;
       this.scene.update(dt);

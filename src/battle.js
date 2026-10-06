@@ -7,13 +7,16 @@
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   class Battle {
-    constructor(game, dungeon) {
+    constructor(game, dungeon, heroDefs) {
       this.game = game; this.dungeon = dungeon; this.theme = DH.THEMES[dungeon.theme];
       this.time = 0; this.turn = 1; this.stageIdx = 0; this.state = 'idle'; this.dead = false;
       this.fx = new DH.FX(); this.log = []; this.info = null; this.banner = null;
       this.obstacles = new Set(dungeon.obstacles.map(p => G.key(p[0], p[1])));
-      const n = dungeon.heroes.length, c0 = Math.floor((C.COLS - n) / 2);
-      this.heroes = dungeon.heroes.map((id, i) => new DH.Hero(id, [c0 + i, C.HERO_ROW]));
+      const defs = (heroDefs && heroDefs.length) ? heroDefs : dungeon.heroes;
+      const n = defs.length, c0 = Math.floor((C.COLS - n) / 2);
+      this.heroes = defs.map((d, i) => new DH.Hero(d, [c0 + i, C.HERO_ROW]));
+      this.moveTime = C.MOVE_TIME + (this.heroes.some(h => h.has('swift')) ? 1 : 0);
+      this.movedSet = new Set(); this.reward = null;
       this.turnOrder = this.heroes.slice(); this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.monsters = [];
       this.drag = null; this.stars = 0; this.buttons = [];
@@ -68,7 +71,7 @@
 
     startDrag(hero, x, y) {
       hero.lifted = true;
-      this.drag = { hero, start: hero.pos, last: hero.pos, swaps: [], changed: false, px: x, py: y, timer: C.MOVE_TIME };
+      this.drag = { hero, start: hero.pos, last: hero.pos, swaps: [], changed: false, px: x, py: y, timer: this.moveTime };
       this.state = 'drag'; this.info = null;
     }
     dragStep(x, y) {
@@ -116,6 +119,7 @@
       if (!d.changed) { this.state = 'idle'; this.heroes.forEach(h => h.order = this.turnOrder.indexOf(h) + 1); return; }
       this.turnOrder = this.pendingOrder || this.turnOrder;
       this.turnOrder.forEach((h, i) => h.order = i + 1);
+      this.movedSet = new Set([d.hero, ...d.swaps]);
       this.resolveTurn();
     }
 
@@ -145,8 +149,40 @@
       await this.monsterPhase();
       if (this.dead) return;
       if (!this.aliveHeroes().length) return this.defeat();
+      await this.startPlayerTurn();
       this.turn++;
       this.state = 'idle';
+    }
+
+    // 回合開始：延遲治癒、再生
+    async startPlayerTurn() {
+      let any = false;
+      for (const h of this.aliveHeroes()) {
+        let amt = 0;
+        if (h.delayedHeal > 0) { amt += h.delayedHeal; h.delayedHeal = 0; }
+        if (h.has('regen')) amt += Math.round(h.maxHp * 0.05);
+        if (amt > 0) { const n = h.heal(amt); if (n > 0) { this.fx.text(h.x, h.y - 30, `+${n}`, PAL.heal); any = true; } }
+      }
+      this.movedSet = new Set();
+      if (any) await sleep(450);
+    }
+
+    // 輔助模式：治癒／延遲治癒／鼓舞／結界 施加在模式內的友方（含自己）
+    applySupport(h) {
+      if (!h.support) return [];
+      const res = DH.resolveTargets(h.support, h.pos,
+        (c, r) => { const u = this.unitAt(c, r); return !!u && u.side === 'hero' && u !== h; },
+        () => false, (c, r) => this.isObstacle(c, r));
+      const allies = res.targets.map(p => this.unitAt(p[0], p[1])).concat([h]);
+      const done = [];
+      for (const a of allies) {
+        if (h.has('heal')) { const n = a.heal(Math.round(a.maxHp * 0.10)); if (n > 0) { this.fx.text(a.x, a.y - 30, `+${n}`, PAL.heal); done.push(a); } }
+        if (h.has('delayed_heal')) { a.delayedHeal += Math.round(a.maxHp * 0.15); this.fx.text(a.x, a.y - 46, '延遲治癒', PAL.heal, { size: 12, dur: 0.9 }); done.push(a); }
+        if (h.has('inspire')) { a.buffAtk = 1; this.fx.text(a.x, a.y - 46, '鼓舞', PAL.gold, { size: 12, dur: 0.9 }); done.push(a); }
+        if (h.has('barrier')) { a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * 0.15)); this.fx.text(a.x, a.y - 46, '結界', '#8fd8ff', { size: 12, dur: 0.9 }); done.push(a); }
+        if (a !== h) this.fx.beam({ x: h.x, y: h.y - 10 }, { x: a.x, y: a.y - 6 }, PAL.heal, 0.35);
+      }
+      return done;
     }
 
     async heroAct(h) {
@@ -155,38 +191,41 @@
         (c, r) => { const u = this.unitAt(c, r); return !!u && u.side === 'hero' && u !== h; },
         (c, r) => this.isObstacle(c, r));
       const targets = res.targets.map(p => this.unitAt(p[0], p[1]));
-      const heals = h.has('heal') ? res.allies.map(p => this.unitAt(p[0], p[1])).filter(a => a.hp < a.maxHp) : [];
-      if (!targets.length && !heals.length) return;
+      const hasSupport = !!h.support && ['heal', 'delayed_heal', 'inspire', 'barrier'].some(t => h.has(t));
+      if (!targets.length && !hasSupport) return;
       this.actor = h;
       const el = DH.ELEMENTS[h.element];
-      if (h.pattern.kind === 'melee') {
-        const tx = targets.reduce((s, t) => s + t.x, 0) / targets.length, ty = targets.reduce((s, t) => s + t.y, 0) / targets.length;
-        const dx = tx - h.x, dy = ty - h.y, len = Math.hypot(dx, dy) || 1;
-        h.offX = dx / len * 18; h.offY = dy / len * 18;
-        await sleep(120);
-        for (const t of targets) this.fx.slash(t.x, t.y - 8, '#fff');
-      } else if (h.pattern.kind === 'ranged') {
-        for (const t of targets) this.fx.projectile({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.22);
-        await sleep(220);
-      } else {
-        for (const t of targets) this.fx.beam({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color);
-        for (const a of heals) this.fx.beam({ x: h.x, y: h.y - 10 }, { x: a.x, y: a.y - 6 }, PAL.heal);
-        await sleep(260);
+      if (targets.length) {
+        if (h.pattern.kind === 'melee') {
+          const tx = targets.reduce((s, t) => s + t.x, 0) / targets.length, ty = targets.reduce((s, t) => s + t.y, 0) / targets.length;
+          const dx = tx - h.x, dy = ty - h.y, len = Math.hypot(dx, dy) || 1;
+          h.offX = dx / len * 18; h.offY = dy / len * 18;
+          await sleep(120);
+          for (const t of targets) this.fx.slash(t.x, t.y - 8, '#fff');
+        } else if (h.pattern.kind === 'ranged') {
+          for (const t of targets) this.fx.projectile({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.22);
+          await sleep(220);
+        } else {
+          for (const t of targets) this.fx.beam({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color);
+          await sleep(260);
+        }
+        let dealtTotal = 0;
+        for (const t of targets) {
+          const r = DH.calcDamage(h, t, { dirsHit: res.dirsHit, moved: this.movedSet.has(h) });
+          const hit = t.takeDamage(r.dmg); dealtTotal += hit.dealt;
+          const col = r.crit ? '#ffb24a' : r.cm > 1 ? PAL.gold : (r.cm < 1 ? '#b8b8c8' : '#fff');
+          this.fx.text(t.x, t.y - 30, `-${r.dmg}`, col, { size: r.cm > 1 || r.crit ? 24 : 20 });
+          if (r.notes.length) this.fx.text(t.x, t.y - 52, r.notes.join('·'), PAL.gold, { size: 12, dur: 0.9 });
+          this.fx.burst(t.x, t.y - 6, el.color, 8);
+          if (h.has('burn') && t.alive) t.status.burn = { turns: 2, dmg: Math.round(h.atk * 0.15) };
+          if (h.has('poison') && t.alive) t.status.poison = { turns: 3, dmg: Math.round(h.atk * 0.2) };
+          if (!t.alive) this.fx.burst(t.x, t.y - 10, '#fff', 14);
+        }
+        if (h.has('lifedrain') && dealtTotal > 0) { const n = h.heal(Math.round(dealtTotal * 0.3)); if (n > 0) this.fx.text(h.x, h.y - 30, `+${n}`, PAL.heal); }
+        this.addLog(`${h.name} 攻擊 ${targets.map(t => t.name).join('、')}`);
       }
-      for (const t of targets) {
-        const r = DH.calcDamage(h, t, { dirsHit: res.dirsHit });
-        t.takeDamage(r.dmg);
-        const col = r.cm > 1 ? PAL.gold : (r.cm < 1 ? '#b8b8c8' : '#fff');
-        this.fx.text(t.x, t.y - 30, `-${r.dmg}`, col, { size: r.cm > 1 ? 24 : 20 });
-        if (r.notes.length) this.fx.text(t.x, t.y - 52, r.notes.join('·'), PAL.gold, { size: 12, dur: 0.9 });
-        this.fx.burst(t.x, t.y - 6, el.color, 8);
-        if (h.has('burn') && t.alive) t.status.burn = { turns: 2, dmg: Math.round(h.atk * 0.15) };
-        if (h.has('poison') && t.alive) t.status.poison = { turns: 3, dmg: Math.round(h.atk * 0.2) };
-        if (!t.alive) this.fx.burst(t.x, t.y - 10, '#fff', 14);
-      }
-      for (const a of heals) { const n = a.heal(Math.round(h.atk * 1.5)); if (n > 0) this.fx.text(a.x, a.y - 30, `+${n}`, PAL.heal); }
-      if (targets.length) this.addLog(`${h.name} 攻擊 ${targets.map(t => t.name).join('、')}`);
-      else this.addLog(`${h.name} 治療隊友`);
+      if (hasSupport) { const done = this.applySupport(h); if (!targets.length && done.length) this.addLog(`${h.name} 支援隊友`); }
+      if (h.buffAtk > 0) h.buffAtk--;
       await sleep(140);
       h.offX = 0; h.offY = 0; this.actor = null;
       await sleep(260);
@@ -237,8 +276,10 @@
           }
           for (const t of targets) {
             const r = DH.calcDamage(m, t, { dirsHit: plan.dirsHit });
-            t.takeDamage(r.dmg);
+            const hit = t.takeDamage(r.dmg);
             this.fx.text(t.x, t.y - 30, `-${r.dmg}`, r.cm > 1 ? '#ff6a5a' : '#ffd0d0', { size: r.cm > 1 ? 24 : 20 });
+            if (hit.absorbed > 0) this.fx.text(t.x, t.y - 66, `護盾 -${hit.absorbed}`, '#8fd8ff', { size: 12, dur: 0.9 });
+            if (t.has('thorns') && m.pattern.kind === 'melee' && m.alive) { const back = Math.max(1, Math.round(r.dmg * 0.25)); m.takeDamage(back); this.fx.text(m.x, m.y - 30, `-${back}`, '#ff9a5a', { size: 16 }); }
             if (r.notes.length) this.fx.text(t.x, t.y - 52, r.notes.join('·'), '#ff9a8a', { size: 12, dur: 0.9 });
             if (m.has('venom') && t.alive) t.status.poison = { turns: 2, dmg: Math.round(m.atk * 0.2) };
             if (!t.alive) this.fx.burst(t.x, t.y - 10, '#fff', 14);
@@ -258,7 +299,7 @@
       this.state = 'won';
       const dead = this.heroes.filter(h => !h.alive).length;
       this.stars = dead === 0 ? 3 : dead === 1 ? 2 : 1;
-      this.game.saveStars(this.dungeon.id, this.stars);
+      this.reward = this.game.onVictory(this.dungeon, this.stars);
       this.addLog('勝利！');
     }
     defeat() { this.state = 'lost'; this.addLog('全軍覆沒…'); }
@@ -411,7 +452,7 @@
       for (const key of ['poison', 'burn']) if (u.status[key]) { DH.drawBadge(ctx, sx, by + 14, 6, key === 'poison' ? '毒' : '焰', key === 'poison' ? '#9a4cff' : '#ff8a2a', '#fff', 8); sx += 14; }
     }
     drawTimer(ctx) {
-      const d = this.drag, p = Math.max(0, d.timer / C.MOVE_TIME);
+      const d = this.drag, p = Math.max(0, d.timer / this.moveTime);
       const col = p > 0.4 ? PAL.gold : '#ff5a4a';
       ctx.save();
       S.rr(ctx, C.BOARD_X, C.BOARD_Y - 15, C.COLS * C.CELL, 7, 3.5); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fill();
@@ -435,6 +476,7 @@
         ctx.globalAlpha = h.alive ? 1 : 0.35; ctx.translate(r.x + r.w / 2, r.y + 54); ctx.scale(0.72, 0.72); DH.drawHero(ctx, { ...h, lifted: false, scale: 1, uid: h.uid }, 0, 0, this.time, { noShadow: true }); ctx.restore();
         ctx.font = `bold 13px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = h.alive ? PAL.text : PAL.textDim;
         ctx.fillText(`${h.name}·${h.cls}`, r.x + r.w / 2, r.y + 86);
+        ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`Lv.${h.level}  ${'★'.repeat(h.stars)}`, r.x + r.w / 2, r.y + 36);
         DH.drawHpBar(ctx, r.x + 8, r.y + 96, r.w - 16, h.hpRatio, h.alive ? PAL.hpHero : '#444', `${h.hp}/${h.maxHp}`);
         DH.drawBadge(ctx, r.x + 13, r.y + 17, 9, String(h.order), PAL.gold, '#2a2030', 11);
         h.talents.forEach((t, k) => DH.drawBadge(ctx, r.x + r.w - 13 - k * 18, r.y + 17, 8, DH.TALENTS[t].icon, el.dark, '#fff', 9));
@@ -464,7 +506,7 @@
       ctx.font = `bold 11px ${DH.FONT}`;
       for (const [t, c] of chips) { const tw = ctx.measureText(t).width + 12; S.rr(ctx, tx, y, tw, 17, 8); ctx.fillStyle = c; ctx.fill(); ctx.fillStyle = '#1a1420'; ctx.fillText(t, tx + 6, y + 8.5); tx += tw + 6; }
       ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim;
-      ctx.fillText(`HP ${u.hp}/${u.maxHp}　攻擊 ${u.atk}　防禦層數 ${u.armor}　${u.pattern.kindLabel}：${u.pattern.kind === 'melee' ? '攻擊相鄰格的敵人' : u.pattern.kind === 'ranged' ? '攻擊每條線上第一個目標，友方會擋線' : '穿透整條線，打到所有敵人'}`, x, y + 30);
+      ctx.fillText(`HP ${u.hp}/${u.maxHp}　攻擊 ${u.atk}　防禦 ${u.defense}${u.armor ? '　重甲 ' + u.armor + ' 層' : ''}　${u.pattern.kindLabel}：${u.pattern.kind === 'melee' ? '攻擊相鄰格的敵人' : u.pattern.kind === 'ranged' ? '攻擊每條線上第一個目標，友方會擋線' : '穿透整條線，打到所有敵人'}`, x, y + 30);
       const tl = u.talents.map(t => `【${DH.TALENTS[t].name}】${DH.TALENTS[t].desc}`);
       if (!tl.length) tl.push('沒有天賦');
       tl.slice(0, 2).forEach((s, i) => { ctx.fillStyle = PAL.text; ctx.fillText(s, x, y + 50 + i * 18); });
@@ -484,20 +526,33 @@
       const won = this.state === 'won';
       ctx.save();
       ctx.fillStyle = 'rgba(6,4,12,0.72)'; ctx.fillRect(0, 0, C.W, C.H);
-      S.rr(ctx, 60, 300, 420, 330, 22); ctx.fillStyle = PAL.panel; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = won ? PAL.gold : '#7a3a3a'; ctx.stroke();
+      const top = won ? 230 : 300, ph = won ? 440 : 330;
+      S.rr(ctx, 60, top, 420, ph, 22); ctx.fillStyle = PAL.panel; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = won ? PAL.gold : '#7a3a3a'; ctx.stroke();
       ctx.font = `bold 36px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = won ? PAL.gold : '#ff6a5a';
-      ctx.fillText(won ? '地牢攻略成功！' : '全軍覆沒', C.W / 2, 350);
+      ctx.fillText(won ? '地牢攻略成功！' : '全軍覆沒', C.W / 2, top + 50);
       if (won) {
         for (let i = 0; i < 3; i++) {
-          const x = C.W / 2 + (i - 1) * 70, y = 430, lit = i < this.stars;
+          const x = C.W / 2 + (i - 1) * 70, y = top + 120, lit = i < this.stars;
           this.drawStar(ctx, x, y, lit ? 30 : 26, lit ? PAL.gold : '#3a3344', lit ? PAL.goldDark : '#2a2430');
         }
-        ctx.font = `15px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(this.stars === 3 ? '全員生還' : `${this.heroes.filter(h => !h.alive).length} 名英雄陣亡`, C.W / 2, 486);
+        ctx.font = `14px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(this.stars === 3 ? '全員生還' : `${this.heroes.filter(h => !h.alive).length} 名英雄陣亡`, C.W / 2, top + 168);
+        const r = this.reward;
+        if (r) {
+          S.rr(ctx, 84, top + 190, 372, 118, 12); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+          ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(r.first ? '戰利品（首次通關加成）' : '戰利品', 100, top + 208);
+          ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = PAL.text;
+          const xpStr = Object.entries(r.xp).map(([k, v]) => `${k === 'rainbow' ? '彩虹' : DH.ELEMENTS[k].name}經驗 ${v}`).join('　');
+          ctx.fillText(`金幣 +${r.gold}　寶石 +${r.gems}${r.tokens ? '　天賦代幣 +' + r.tokens : ''}`, 100, top + 232);
+          ctx.fillText(xpStr, 100, top + 254);
+          if (r.gear) { ctx.fillStyle = DH.RARITIES[r.gear.rarity].color; ctx.fillText(`裝備：${DH.gearLabel(r.gear)}（${DH.GEAR_SLOTS.find(sl => sl.key === r.gear.slot).name}，${DH.gearStatLabel(r.gear)}）`, 100, top + 276); }
+          else { ctx.fillStyle = PAL.textDim; ctx.fillText('這次沒有掉落裝備', 100, top + 276); }
+          ctx.textAlign = 'center';
+        }
       } else {
         ctx.font = `15px ${DH.FONT}`; ctx.fillStyle = PAL.textDim;
         ctx.fillText('試著讓怪物同時被多名英雄攻擊，', C.W / 2, 420); ctx.fillText('並把牧師留到最後再碰，讓他先出手治療。', C.W / 2, 446);
       }
-      const bx = 100, by = 540, bw = 160, bh = 54;
+      const bx = 100, by = top + ph - 90, bw = 160, bh = 54;
       this.button(ctx, bx, by, bw, bh, '返回地圖', PAL.panelLight, () => this.game.showCampaign());
       if (won && this.game.nextDungeon(this.dungeon.id)) this.button(ctx, bx + 180, by, bw, bh, '下一關 ▶', PAL.gold, () => this.game.startDungeon(this.game.nextDungeon(this.dungeon.id)), '#2a2030');
       else this.button(ctx, bx + 180, by, bw, bh, '再挑戰一次', PAL.gold, () => this.game.startDungeon(this.dungeon), '#2a2030');

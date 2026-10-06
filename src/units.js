@@ -11,15 +11,16 @@
       this.element = def.element;
       this.pattern = DH.PATTERNS[def.pattern];
       this.maxHp = def.hp; this.hp = def.hp;
-      this.atk = def.atk; this.armor = def.armor || 0;
-      this.talents = def.talents.slice();
+      this.atk = def.atk; this.armor = def.armor || 0; this.defense = def.def || 0;
+      this.talents = (def.talents || []).slice();
       this.col = pos[0]; this.row = pos[1];
       this.alive = true;
       this.status = {};                     // poison:{turns,dmg}, burn:{turns,dmg}
+      this.shieldHp = 0; this.buffAtk = 0; this.delayedHeal = 0;
       // 畫面
       const c = G.cellCenter(this.col, this.row);
-      this.x = c.x; this.y = c.y;           // 目前顯示位置（插值）
-      this.offX = 0; this.offY = 0;         // 攻擊位移
+      this.x = c.x; this.y = c.y;
+      this.offX = 0; this.offY = 0;
       this.scale = 1; this.alpha = 1;
       this.flash = 0; this.dropY = 0;
       this.lifted = false;
@@ -29,9 +30,12 @@
     setCell(c, r) { this.col = c; this.row = r; }
     snap() { const c = G.cellCenter(this.col, this.row); this.x = c.x; this.y = c.y; }
     takeDamage(n) {
+      let absorbed = 0;
+      if (this.shieldHp > 0) { absorbed = Math.min(this.shieldHp, n); this.shieldHp -= absorbed; n -= absorbed; }
       this.hp = Math.max(0, this.hp - n);
       this.flash = 0.25;
       if (this.hp === 0) this.alive = false;
+      return { dealt: n, absorbed };
     }
     heal(n) { const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + n); return this.hp - before; }
     get hpRatio() { return this.hp / this.maxHp; }
@@ -50,7 +54,15 @@
   }
 
   class Hero extends Unit {
-    constructor(id, pos) { super(DH.HEROES[id], pos, 'hero'); this.cls = this.def.cls; this.look = this.def.look; this.order = 0; }
+    // defOrId：名冊 id（預覽用，取基礎值）或由 Meta.buildBattleDef 產生的戰鬥定義
+    constructor(defOrId, pos) {
+      const def = typeof defOrId === 'string' ? DH.HEROES[defOrId] : defOrId;
+      super(def, pos, 'hero');
+      this.cls = def.cls; this.look = def.look; this.order = 0;
+      this.support = def.support ? DH.PATTERNS[def.support] : null;
+      this.level = def.level || 1; this.stars = def.stars; this.weaponRarity = def.weaponRarity || null;
+      this.instance = def.instance || null;
+    }
   }
   class Monster extends Unit {
     constructor(id, pos) {
