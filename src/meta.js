@@ -8,6 +8,7 @@
   const SUMMON_COST = 300, SOUL_SUMMON_COST = 350, WEAPON_SUMMON_COST = 150;
   const SIGNATURE_RATE = 0.05;
   const SUMMON_RATES = { 1: 40, 2: 30, 3: 19, 4: 8, 5: 3 };
+  const SOUL_RATES = { 1: 25, 2: 28, 3: 25, 4: 15, 5: 7 };
   let heroUid = 1;
 
   class Meta {
@@ -123,6 +124,18 @@
       h.gear[gear.slot] = gear; this.save(); return true;
     }
     unequip(h, slot) { const g = h.gear[slot]; if (!g) return; delete h.gear[slot]; this.d.gear.push(g); this.save(); }
+    // 一鍵裝備：每個部位挑背包裡最好的（專武優先、稀有度高者優先），只在比目前更好時更換
+    autoEquip(h) {
+      let n = 0;
+      for (const sl of DH.GEAR_SLOTS) {
+        const cands = this.d.gear.filter(g => g.slot === sl.key && this.canEquip(h, g));
+        if (!cands.length) continue;
+        cands.sort((a, b) => DH.rarityRank(b.rarity) - DH.rarityRank(a.rarity) || (b.level || 1) - (a.level || 1));
+        const best = cands[0], cur = h.gear[sl.key];
+        if (!cur || DH.rarityRank(best.rarity) > DH.rarityRank(cur.rarity) || (best.rarity === 'signature' && cur.rarity === 'signature' && (best.level || 1) > (cur.level || 1))) { this.equip(h, best); n++; }
+      }
+      return n;
+    }
     sigMaterials(h, gear) { return this.d.gear.filter(g => g.rarity === 'signature' && g.heroId === gear.heroId && g.uid !== gear.uid); }
     upgradeSignature(h, gear) {
       if (gear.rarity !== 'signature' || (gear.level || 1) >= DH.SIG_LEVEL_MAX) return false;
@@ -177,8 +190,8 @@
     // ── 召喚 ─────────────────────────────────────────
     summonCost() { return SUMMON_COST; }
     soulSummonCost() { return SOUL_SUMMON_COST; }
-    rollStars(minStars) {
-      const entries = Object.entries(SUMMON_RATES).filter(([s]) => +s >= (minStars || 1));
+    rollStars(soul) {
+      const entries = Object.entries(soul ? SOUL_RATES : SUMMON_RATES);
       let r = Math.random() * entries.reduce((a, [, w]) => a + w, 0);
       for (const [s, w] of entries) { r -= w; if (r <= 0) return +s; }
       return +entries[entries.length - 1][0];
@@ -186,7 +199,7 @@
     summon(soul) {
       if (soul) { if (this.d.soulSigils < SOUL_SUMMON_COST) return null; this.d.soulSigils -= SOUL_SUMMON_COST; }
       else { if (this.d.gems < SUMMON_COST) return null; this.d.gems -= SUMMON_COST; }
-      const stars = this.rollStars(soul ? 4 : 1);
+      const stars = this.rollStars(soul);
       const pool = Object.values(DH.HEROES).filter(d => d.stars === stars);
       const def = pool[Math.floor(Math.random() * pool.length)];
       const h = this.addHero(def.id, true);
@@ -200,7 +213,7 @@
       if (soul) this.d.soulSigils -= cost; else this.d.gems -= cost;
       const out = [];
       for (let i = 0; i < n; i++) {
-        const stars = this.rollStars(soul ? 4 : 1);
+        const stars = this.rollStars(soul);
         const pool = Object.values(DH.HEROES).filter(d => d.stars === stars);
         const def = pool[Math.floor(Math.random() * pool.length)];
         const dup = this.d.heroes.some(o => o.id === def.id);
@@ -251,5 +264,5 @@
     buyXp(color) { if (this.d.gems < 100) return false; this.d.gems -= 100; this.d.xp[color] += 500; this.save(); return true; }
   }
   DH.Meta = Meta;
-  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SUMMON_COST, SOUL_SUMMON_COST, WEAPON_SUMMON_COST, SIGNATURE_RATE, COLORS };
+  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SOUL_RATES, SUMMON_COST, SOUL_SUMMON_COST, WEAPON_SUMMON_COST, SIGNATURE_RATE, COLORS };
 })(window.DH);

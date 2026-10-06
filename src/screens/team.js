@@ -19,7 +19,9 @@
       ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.textDim;
       if (leader) { const ld = m.def(leader); ctx.fillText(`隊長 ${ld.name}：${DH.ELEMENTS[ld.element].name}色隊友 攻擊 +${Math.round(ld.leader.atk * 100)}%、防禦 +${Math.round(ld.leader.def * 100)}`, 28, 262); }
       const power = this.team.map(u => m.hero(u)).filter(Boolean).reduce((a, h) => a + m.power(h), 0);
-      ctx.textAlign = 'right'; ctx.fillStyle = PAL.gold; ctx.fillText(`隊伍戰力 ${power}`, 512, 262);
+      ctx.textAlign = 'right'; ctx.fillStyle = PAL.gold; ctx.fillText(`隊伍戰力 ${power}`, 400, 262);
+      UI.button(this, ctx, 410, 248, 102, 28, '全隊一鍵裝備', { size: 12, fill: PAL.gold, textColor: '#2a2030', onClick: () => { let n = 0; for (const u of this.team) { const h = m.hero(u); if (h) n += m.autoEquip(h); } this.msg = n ? `裝上了 ${n} 件裝備` : '沒有更好的裝備可換'; this.msgT = 1.5; } });
+      if (this.msgT > 0) { this.msgT -= 0.016; ctx.textAlign = 'center'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(this.msg, C.W / 2, 282); }
       // 名冊
       const list = m.d.heroes.slice().sort((a, b) => b.stars - a.stars || m.power(b) - m.power(a));
       const cols = 4, cw = 120, ch = 150, gap = 8, x0 = (C.W - cols * cw - (cols - 1) * gap) / 2, y0 = 300;

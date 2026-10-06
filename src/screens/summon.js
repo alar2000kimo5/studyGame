@@ -31,7 +31,7 @@
       // 機率
       UI.panel(ctx, 24, 386, 492, 72, { radius: 14 });
       ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.text;
-      ctx.fillText('英雄：' + Object.entries(K.SUMMON_RATES).map(([s, p]) => `${s}★ ${p}%`).join('　') + '　靈魂召喚保底 4★', 40, 406);
+      ctx.fillText('英雄：' + Object.entries(K.SUMMON_RATES).map(([s, p]) => `${s}★ ${p}%`).join('　') + '　靈魂：' + Object.entries(K.SOUL_RATES).map(([s, p]) => `${s}★ ${p}%`).join(' '), 40, 406);
       ctx.fillStyle = PAL.textDim;
       ctx.fillText(`武器：專屬武器 ${Math.round(K.SIGNATURE_RATE * 100)}%（十連保底一把），其餘為魔法～傳說武器。重複英雄可合併或退役。`, 40, 428);
       ctx.fillText(`名冊 ${Object.keys(DH.HEROES).length} 位，兵營 ${m.d.heroes.length} 位，背包裝備 ${m.d.gear.length} 件。`, 40, 448);

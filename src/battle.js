@@ -24,6 +24,7 @@
       this.turnOrder = this.heroes.slice(); this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.monsters = [];
       this.drag = null; this.stars = 0; this.buttons = [];
+      this.auto = false; this.autoWait = 0;
       this.spawnStage(0, true);
       this.waveStart();
       this.addLog(`${dungeon.name}　第 1 波`);
@@ -83,6 +84,7 @@
       for (const b of this.buttons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.onClick(); return; }
       if (this.state !== 'idle') return;
       if (y < 100 && x < 70) { this.game.showCampaign(); return; }
+      if (this.auto && G.pixelToCell(x, y)) { const cu = this.unitAt(...G.pixelToCell(x, y)); if (cu && cu.side === 'hero') this.auto = false; }
       const cell = G.pixelToCell(x, y);
       if (cell) {
         const u = this.unitAt(cell[0], cell[1]);
@@ -428,8 +430,25 @@
     defeat() { this.state = 'lost'; this.addLog('全軍覆沒…'); }
 
     // ── 更新 ──────────────────────────────────────────
+    async runAuto() {
+      if (this.state !== 'idle' || this.drag) return;
+      const plan = DH.planAutoTurn(this);
+      if (!plan || !plan.path.length) { this.auto = false; this.addLog('自動：找不到可行的移動'); return; }
+      const h = plan.hero, c0 = G.cellCenter(h.col, h.row);
+      this.startDrag(h, c0.x, c0.y);
+      this.state = 'drag';
+      for (const step of plan.path) {
+        if (this.dead || !this.drag) return;
+        const r = this.tryStep(step);
+        const c = G.cellCenter(h.col, h.row); this.drag.px = c.x; this.drag.py = c.y;
+        if (!r) break;
+        await sleep(160);
+      }
+      if (this.drag) this.endDrag();
+    }
     update(dt) {
       this.time += dt;
+      if (this.auto && this.state === 'idle' && !this.drag && !this.info) { this.autoWait += dt; if (this.autoWait > 0.5) { this.autoWait = 0; this.runAuto(); } } else this.autoWait = 0;
       for (const u of this.allUnits()) u.update(dt);
       this.fx.update(dt);
       if (this.banner) this.banner.t += dt;
@@ -448,6 +467,7 @@
       const g = ctx.createLinearGradient(0, 0, 0, C.H); g.addColorStop(0, T.bg1); g.addColorStop(1, T.bg2);
       ctx.fillStyle = g; ctx.fillRect(0, 0, C.W, C.H);
       this.drawDecor(ctx);
+      this.buttons = [];
       this.drawTopBar(ctx);
       this.drawBoard(ctx);
       this.drawUnits(ctx);
@@ -455,8 +475,7 @@
       this.drawBottom(ctx);
       if (this.drag) this.drawTimer(ctx);
       if (this.banner) this.drawBanner(ctx);
-      this.buttons = [];
-      if (this.state === 'won' || this.state === 'lost') this.drawEnd(ctx);
+      if (this.state === 'won' || this.state === 'lost') { this.buttons = []; this.drawEnd(ctx); }
     }
     drawDecor(ctx) {
       ctx.save(); ctx.globalAlpha = 0.18;
@@ -481,8 +500,9 @@
       // 回合
       ctx.textAlign = 'right'; ctx.font = `bold 15px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(`回合 ${this.turn}`, 516, 40);
       ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim;
-      ctx.fillText(this.state === 'idle' ? '拖曳一名英雄' : this.state === 'drag' ? '放開即行動' : this.state === 'busy' ? (this.actor && this.actor.side === 'monster' ? '怪物行動中' : '英雄行動中') : '', 516, 66);
+      ctx.fillText(this.auto ? '自動戰鬥中' : this.state === 'idle' ? '拖曳一名英雄' : this.state === 'drag' ? '放開即行動' : this.state === 'busy' ? (this.actor && this.actor.side === 'monster' ? '怪物行動中' : '英雄行動中') : '', 440, 66);
       ctx.restore();
+      if (this.state !== 'won' && this.state !== 'lost') DH.UI.button(this, ctx, 448, 54, 68, 28, this.auto ? '自動 ON' : '自動', { size: 12, fill: this.auto ? PAL.gold : PAL.panelLight, textColor: this.auto ? '#2a2030' : PAL.text, radius: 9, onClick: () => { this.auto = !this.auto; this.info = null; } });
     }
     drawBoard(ctx) {
       const T = this.theme, bx = C.BOARD_X, by = C.BOARD_Y, bw = C.COLS * C.CELL, bh = C.ROWS * C.CELL;

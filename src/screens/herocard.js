@@ -89,7 +89,8 @@
       py += 74;
       UI.panel(ctx, 16, py, 508, 150, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
       ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(`裝備 ${m.gearCount(h)} / 6`, 30, py + 18);
-      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('每件裝備加成一項屬性；集滿裝備並達到等級後可昇華', 150, py + 18);
+      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('每件加成一項屬性；集滿並達到等級後可昇華', 120, py + 18);
+      UI.button(this, ctx, 410, py + 6, 100, 26, '一鍵裝備', { size: 12, fill: PAL.gold, textColor: '#2a2030', onClick: () => { const n = m.autoEquip(h); this.flash(n ? `裝上了 ${n} 件裝備` : '沒有更好的裝備可換', n ? PAL.gold : '#ff9a5a'); } });
       DH.GEAR_SLOTS.forEach((sl, i) => {
         const gx = 30 + (i % 3) * 164, gy = py + 32 + Math.floor(i / 3) * 56, gear = h.gear[sl.key];
         S.rr(ctx, gx, gy, 154, 48, 10); ctx.fillStyle = gear ? '#2a2340' : 'rgba(0,0,0,0.35)'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = gear ? DH.RARITIES[gear.rarity].color : '#3a3448'; ctx.stroke();
