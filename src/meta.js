@@ -26,6 +26,8 @@
         for (const id of DH.STARTER_HEROES) this.addHero(id, true);
         this.d.team = this.d.heroes.map(h => h.uid);
       }
+      // 測試用：一次性補 100 萬靈魂印記（要拿掉時刪除這兩行即可）
+      if (!this.d.testGrant) { this.d.soulSigils += 1000000; this.d.testGrant = true; }
       heroUid = Math.max(heroUid, ...this.d.heroes.map(h => parseInt(String(h.uid).replace(/\D/g, ''), 10) + 1 || 1));
       this.save();
     }
