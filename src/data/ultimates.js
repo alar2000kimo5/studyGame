@@ -44,6 +44,7 @@
     princess: '王國號令', princess5: '黑焰號令', princess6: '天界號令',
     elementalist: '八方風暴', elementalist5: '影之風暴',
     guardian: '不動咆哮', guardian5: '守門咆哮',
+    knightL: '不滅聖盾', warriorL: '狂瀾怒斬', archerL: '雙弦流星雨', mageL: '雷霆隕落', clericL: '復生聖詠', rogueL: '零之影殺', barbarianL: '天崩地裂', paladinL: '聖光降臨', druidL: '古樹之怒', witchL: '噬魂詛咒', hunterL: '鷹眼狙殺', bardL: '安可狂想曲', princessL: '女王號令', elementalistL: '創世風暴', guardianL: '明王咆哮',
   };
   DH.ultimateFor = function (def) {
     if (!def || def.stars < 4) return null;

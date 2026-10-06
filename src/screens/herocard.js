@@ -25,7 +25,7 @@
       const g = ctx.createRadialGradient(C.W / 2, 250 + sy, 20, C.W / 2, 250 + sy, 260); g.addColorStop(0, el.color + '66'); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 60 + sy, C.W, 400);
       ctx.save(); ctx.translate(C.W / 2, 290 + sy); ctx.scale(2.6, 2.6);
-      DH.drawHero(ctx, { look: d.look, element: d.element, uid: 7, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, shieldHp: 0 }, 0, 0, this.time);
+      DH.drawHero(ctx, { look: d.look, element: d.element, uid: 7, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, shieldHp: 0, legendary: d.legendary }, 0, 0, this.time);
       ctx.restore();
       // 左上：顏色／種族／隊長加成
       let y = 96 + sy;
@@ -47,6 +47,7 @@
       ctx.strokeText(`${d.name}・${d.cls}`, C.W / 2, 400 + sy); ctx.fillText(`${d.name}・${d.cls}`, C.W / 2, 400 + sy);
       UI.stars(ctx, C.W / 2 - (h.stars - 1) * 13.8, 430 + sy, h.stars, 11);
       if (h.ascended) UI.chip(ctx, C.W / 2 + h.stars * 14 + 6, 421 + sy, '昇華', '#ff9a3a');
+      if (d.legendary) { UI.chip(ctx, C.W / 2 - h.stars * 14 - 70, 421 + sy, `傳說「${d.title}」`, '#ff6ad5', '#fff'); }
       ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.textDim; UI.wrap(ctx, d.flavor, 40, 456 + sy, 460, 16, 2);
       // ── 天賦列 ──
       let py = 492 + sy;
@@ -99,6 +100,14 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
+      // ── 傳說機制 ──
+      if (d.special) {
+        py += 160;
+        UI.panel(ctx, 16, py, 508, 62, { radius: 14, fill: 'rgba(58,26,52,0.85)', stroke: '#ff6ad5' });
+        ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.fillText(`傳說機制：${DH.SPECIALS[d.special].name}`, 30, py + 18);
+        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; UI.wrap(ctx, DH.SPECIALS[d.special].desc, 30, py + 38, 480, 14, 2);
+        py -= 160 - 72;
+      }
       // ── 大絕招 ──
       const ult = DH.ultimateFor(d);
       if (ult) {

@@ -71,6 +71,7 @@
       this.instance = def.instance || null;
       this.sig = def.sig || null;
       this.ult = DH.ultimateFor(def); this.energy = 0; this.cursed = 0; this.marked = 0; this.roar = 0;
+      this.legendary = !!def.legendary; this.special = def.special || null; this.title = def.title || null; this.revived = false;
       this.rage = 0; this.wasHit = false; this.lifeSaved = false; this.swapBuff = 0; this.iceBuff = 0; this.onFire = false;
     }
     hasSig(key) { return !!(this.sig && this.sig.trait && this.sig.trait.key === key); }

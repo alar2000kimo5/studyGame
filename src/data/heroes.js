@@ -49,6 +49,7 @@
       ['knight3', '伊芙琳', 'elf', 'blue', 3, 'long', 4, 0, '精靈騎士團的旗手，站姿比旗桿還直。', { beard: false }],
       ['knight4', '莫洛克', 'orc', 'dark', 4, 'mohawk', 5, 0, '背叛部落投奔王國的獸人騎士，盾上還有舊傷。'],
       ['knight5', '塞拉芬', 'dragonkin', 'green', 5, 'spiky', 11, 2, '龍裔聖劍士，傳說他的盾能擋下龍息。'],
+      ['knightL', '塞巴斯', 'human', 'light', 5, 'short', 14, 0, '據說他的盾從沒被打穿過，連他自己都開始相信了。', { beard: false, legendary: true, special: 'aftershock', title: '不滅之壁' }],
     ],
     warrior: [
       ['warrior', '布倫', 'dwarf', 'red', 2, 'spiky', 1, 1, '矮人礦坑出身，一把斧頭砍過的岩石比樹還多。'],
@@ -56,6 +57,7 @@
       ['warrior3', '格魯姆', 'orc', 'blue', 3, 'mohawk', 6, 1, '獸人戰士，相信「八個方向都砍」才叫公平。'],
       ['warrior4', '塔莉亞', 'elf', 'dark', 4, 'long', 4, 1, '放棄弓箭改拿雙手斧的精靈，族人至今不解。', { beard: false }],
       ['warrior5', '伊格尼', 'dragonkin', 'light', 5, 'spiky', 10, 4, '龍裔戰神，斧刃上有永不熄滅的火紋。'],
+      ['warriorL', '瑞克斯', 'orc', 'red', 5, 'mohawk', 6, 1, '一斧不夠就兩斧，兩斧不夠就把旁邊的也砍了。', { legendary: true, special: 'double', title: '狂瀾' }],
     ],
     archer: [
       ['archer', '莉亞', 'elf', 'green', 2, 'ponytail', 2, 0, '森林守衛，箭從不落空，只是偶爾射到自己的帽子。'],
@@ -64,6 +66,7 @@
       ['archer4', '薇拉', 'dragonkin', 'blue', 4, 'long', 11, 0, '龍裔神射手，箭矢出手時會帶一道藍焰。', { beard: false }],
       ['archer5', '索林', 'dwarf', 'dark', 5, 'spiky', 6, 3, '矮人長弓大師，弓是用整根礦坑支柱做的。'],
       ['archer6', '露米娜', 'angel', 'blue', 3, 'ponytail', 3, 2, '天使弓手，從空中射下的箭帶著光。', { beard: false }],
+      ['archerL', '希爾維亞', 'elf', 'green', 5, 'long', 3, 0, '一次拉兩根箭，兩根都中，從沒解釋過怎麼辦到的。', { beard: false, legendary: true, special: 'double', title: '雙弦' }],
     ],
     mage: [
       ['mage', '梅林', 'human', 'blue', 3, 'long', 3, 1, '塔裡最老的法師，鬍子裡藏著三本沒還的書。', { beard: true }],
@@ -72,6 +75,7 @@
       ['mage4', '祖格', 'orc', 'green', 4, 'mohawk', 5, 2, '獸人裡少見的法師，咒語喊得比誰都大聲。'],
       ['mage5', '阿斯特拉', 'dragonkin', 'dark', 5, 'spiky', 8, 3, '龍裔大法師，據說能把星星拉下來當武器。'],
       ['mage6', '艾瑟瑞', 'angel', 'red', 4, 'spiky', 10, 0, '天使法師，晨星的光芒是他的法術來源。'],
+      ['mageL', '伏爾特', 'dragonkin', 'blue', 5, 'spiky', 11, 0, '他的閃電會自己找下一個目標，而且從不迷路。', { legendary: true, special: 'chain_lightning', title: '連鎖雷' }],
     ],
     cleric: [
       ['cleric', '瑟拉', 'human', 'light', 3, 'long', 4, 3, '修道院派來的治療師，禱告比誰都快。'],
@@ -80,6 +84,7 @@
       ['cleric4', '莉莎貝', 'elf', 'red', 4, 'long', 10, 2, '精靈高階祭司，治療術帶著玫瑰香氣。'],
       ['cleric5', '烏爾加', 'orc', 'dark', 5, 'mohawk', 5, 3, '獸人薩滿牧師，歌聲低沉卻能讓骨頭重新長好。'],
       ['cleric6', '奧瑞爾', 'angel', 'light', 4, 'short', 4, 1, '天使牧師，聖歌一響，連怪物都會短暫安靜。'],
+      ['clericL', '艾蓮娜', 'angel', 'light', 5, 'long', 4, 2, '天界最高階的治療師，死亡在她面前只是暫時的。', { beard: false, legendary: true, special: 'revive', title: '復生' }],
     ],
     rogue: [
       ['rogue', '奇洛', 'halfling', 'dark', 3, 'short', 5, 0, '半身人盜賊，手腳比話還快，從不解釋錢包去哪了。'],
@@ -87,6 +92,7 @@
       ['rogue3', '賽斯', 'elf', 'red', 2, 'short', 2, 4, '精靈刺客，認為自己的影子都太吵。'],
       ['rogue4', '克魯格', 'orc', 'light', 4, 'mohawk', 6, 4, '體型巨大卻無聲無息的獸人盜賊，沒人知道怎麼辦到的。'],
       ['rogue5', '夜鱗', 'dragonkin', 'green', 5, 'spiky', 5, 3, '龍裔暗影，據說同時出現在兩個地方過。'],
+      ['rogueL', '零', 'halfling', 'dark', 5, 'short', 5, 0, '敵人總是同時被兩個方向刺中，但現場只有他一個人。', { legendary: true, special: 'shadow_strike', title: '影分身' }],
     ],
     barbarian: [
       ['barbarian', '戈登', 'orc', 'red', 2, 'mohawk', 6, 1, '北境獸人，覺得門都是用來撞的。'],
@@ -94,6 +100,7 @@
       ['barbarian3', '杜林', 'dwarf', 'green', 3, 'mohawk', 9, 2, '矮人狂戰士，木棍是他自己拔的樹。'],
       ['barbarian4', '芬恩', 'halfling', 'light', 4, 'spiky', 0, 2, '半身人蠻族，力氣跟身高完全不成比例。'],
       ['barbarian5', '卡爾蒙', 'dragonkin', 'blue', 5, 'mohawk', 12, 2, '龍裔蠻王，推開的怪物通常飛得比預期遠。'],
+      ['barbarianL', '托爾加', 'orc', 'red', 5, 'mohawk', 6, 3, '一棍下去整排地面都會抖，站在同一列的怪物都後悔了。', { legendary: true, special: 'quake_strike', title: '地震' }],
     ],
     paladin: [
       ['paladin', '賽琳', 'human', 'light', 4, 'long', 4, 3, '聖光騎士團團長，盾牌上的刻痕每一道都有名字。'],
@@ -102,6 +109,7 @@
       ['paladin4', '艾拉妮', 'elf', 'green', 3, 'ponytail', 3, 0, '精靈聖騎士，治療時盾牌會散發柔光。', { beard: false }],
       ['paladin5', '格拉斯', 'dragonkin', 'red', 5, 'spiky', 10, 1, '龍裔聖騎，信仰與火焰同樣熾熱。'],
       ['paladin6', '瑟菈菲', 'angel', 'light', 5, 'long', 3, 0, '天界派來的聖騎士，翅膀比盾牌更常拿來擋攻擊。', { beard: false }],
+      ['paladinL', '阿瑟', 'human', 'light', 5, 'short', 0, 1, '聖光隨著他的每一擊灑向全隊，亡靈見了掉頭就跑。', { legendary: true, special: 'holy_strike', title: '聖光' }],
     ],
     druid: [
       ['druid', '歐文', 'elf', 'green', 3, 'long', 7, 2, '會和樹說話的精靈，樹通常不回答。'],
@@ -109,6 +117,7 @@
       ['druid3', '哈根', 'dwarf', 'light', 2, 'short', 7, 4, '矮人德魯伊，擅長和蘑菇溝通。'],
       ['druid4', '席爾瓦', 'human', 'dark', 4, 'long', 7, 1, '沼澤隱士，延遲治癒是因為她做事慢。'],
       ['druid5', '翠鱗', 'dragonkin', 'blue', 5, 'spiky', 7, 2, '龍裔自然祭司，走過的地方會開花。'],
+      ['druidL', '樹語者', 'elf', 'green', 5, 'long', 7, 1, '藤蔓聽他的話，被纏住的怪物動不了也逃不掉。', { legendary: true, special: 'vines', title: '藤蔓' }],
     ],
     witch: [
       ['witch', '娜薇', 'human', 'dark', 4, 'long', 8, 3, '沼澤女巫，大鍋裡煮的東西連她自己都不太確定。'],
@@ -116,6 +125,7 @@
       ['witch3', '伊索德', 'elf', 'blue', 2, 'long', 3, 2, '精靈月巫，只在夜晚施咒。'],
       ['witch4', '葛蕾塔', 'dwarf', 'red', 3, 'long', 1, 0, '矮人火巫，煉金爐炸過三次後反而更厲害。', { beard: false }],
       ['witch5', '夏爾莎', 'orc', 'light', 5, 'mohawk', 5, 1, '獸人血巫，汲取生命的方式令人不敢直視。'],
+      ['witchL', '莫甘娜', 'human', 'dark', 5, 'long', 8, 3, '她吸走的不只是生命，毒也會跟著在怪物之間蔓延。', { legendary: true, special: 'soul_drain', title: '噬魂' }],
     ],
     hunter: [
       ['hunter', '塔隆', 'dwarf', 'green', 2, 'short', 9, 0, '矮人獵人，斜角射擊是他唯一會的角度。'],
@@ -123,6 +133,7 @@
       ['hunter3', '瓦洛克', 'orc', 'red', 3, 'mohawk', 6, 2, '獸人獵頭者，專門對付野獸。'],
       ['hunter4', '芮妮', 'elf', 'dark', 4, 'ponytail', 13, 1, '精靈追獵者，能從三格外聞到怪物。', { beard: false }],
       ['hunter5', '霜牙', 'dragonkin', 'light', 5, 'spiky', 3, 0, '龍裔獵龍人，自己也是龍這件事讓他很矛盾。'],
+      ['hunterL', '凱恩', 'dwarf', 'green', 5, 'short', 1, 2, '鷹眼獵人，第二箭永遠正中要害。', { legendary: true, special: 'double_crit', title: '鷹眼' }],
     ],
     bard: [
       ['bard', '菲歐', 'halfling', 'blue', 3, 'short', 9, 1, '唱歌走音但士氣加成真的有效的半身人詩人。'],
@@ -130,6 +141,7 @@
       ['bard3', '艾爾文', 'elf', 'green', 2, 'long', 0, 0, '精靈琴手，琴聲讓隊友忘記自己受傷。'],
       ['bard4', '岡姆', 'dwarf', 'dark', 4, 'short', 6, 1, '矮人戰歌手，歌聲像礦坑崩塌一樣震撼。'],
       ['bard5', '鳴鱗', 'dragonkin', 'red', 5, 'spiky', 8, 3, '龍裔吟遊詩人，一聲龍吟抵得上整支軍樂隊。'],
+      ['bardL', '梅洛迪', 'halfling', 'blue', 5, 'ponytail', 13, 1, '她的安可曲能讓隊友再衝一次，觀眾也是。', { beard: false, legendary: true, special: 'encore', title: '安可' }],
     ],
     princess: [
       ['princess', '艾莉絲', 'human', 'light', 5, 'long', 10, 3, '王國的公主，比王國的將軍更懂得排兵布陣。'],
@@ -138,6 +150,7 @@
       ['princess4', '布琳希', 'dwarf', 'red', 3, 'long', 0, 1, '矮人山脈的公主，王冠是純鐵打的。', { beard: false }],
       ['princess5', '夜焰', 'dragonkin', 'dark', 4, 'long', 8, 3, '龍裔公主，守護結界由黑焰構成。'],
       ['princess6', '天霓', 'angel', 'green', 5, 'long', 4, 3, '天界的公主，結界的形狀像一對展開的翅膀。'],
+      ['princessL', '維多利亞', 'human', 'light', 5, 'long', 10, 0, '真正的女王，全隊的能量與護盾都由她調度。', { beard: false, legendary: true, special: 'queen', title: '女王' }],
     ],
     elementalist: [
       ['elementalist', '澤恩', 'dragonkin', 'blue', 5, 'spiky', 11, 0, '龍裔元素使，八個方向同時起火不是意外，是風格。'],
@@ -145,6 +158,7 @@
       ['elementalist3', '琳恩', 'elf', 'light', 2, 'long', 4, 3, '精靈光元素使，發光的程度看心情。'],
       ['elementalist4', '沙克', 'orc', 'red', 3, 'mohawk', 6, 3, '獸人火元素使，脾氣跟火球一樣大。'],
       ['elementalist5', '梅芙', 'halfling', 'dark', 4, 'ponytail', 8, 2, '半身人暗元素使，影子會自己走動。'],
+      ['elementalistL', '普羅米修', 'dragonkin', 'red', 5, 'spiky', 10, 1, '火、冰、雷同時出手，目標旁邊的也一起遭殃。', { legendary: true, special: 'tri_element', title: '三元素' }],
     ],
     guardian: [
       ['guardian', '霍克', 'dragonkin', 'red', 4, 'short', 12, 1, '龍裔守護者，站著不動就是他的攻擊方式。'],
@@ -152,6 +166,7 @@
       ['guardian3', '約納', 'human', 'green', 2, 'short', 5, 0, '城門守衛二十年，從沒讓人不排隊進城。'],
       ['guardian4', '塔格', 'orc', 'light', 3, 'mohawk', 6, 4, '獸人守護者，荊棘盾讓敵人後悔動手。'],
       ['guardian5', '岩鬚', 'dwarf', 'dark', 5, 'short', 14, 2, '矮人山脈的守門人，據說從沒有人成功推開他。'],
+      ['guardianL', '巨岩', 'dwarf', 'red', 5, 'short', 14, 4, '打他一下，周圍全部都會被他還回去。', { legendary: true, special: 'immovable', title: '不動明王' }],
     ],
   };
 
@@ -162,9 +177,12 @@
       const look = Object.assign({}, tpl.flags, SPECIES_LOOK[species], {
         skin: SPECIES_SKIN[species][skinIdx % 5], hair: HAIR_COLORS[hairIdx % HAIR_COLORS.length], hairStyle, weapon: tpl.weapon,
       }, extra || {});
+      delete look.legendary; delete look.special; delete look.title;
+      const ex = extra || {};
       HEROES[id] = {
         id, name, cls: tpl.cls, element, species, stars, pattern: tpl.pattern, support: tpl.support || null,
-        hp: Math.round(tpl.hp * k), atk: Math.round(tpl.atk * k), def: tpl.def + 2 * (stars - 1),
+        legendary: !!ex.legendary, special: ex.special || null, title: ex.title || null,
+        hp: Math.round(tpl.hp * k * (ex.legendary ? 1.15 : 1)), atk: Math.round(tpl.atk * k * (ex.legendary ? 1.15 : 1)), def: tpl.def + 2 * (stars - 1) + (ex.legendary ? 5 : 0),
         talents: [tpl.classTalent].concat(tpl.pool), ascendedTalent: 'ascended_power', innate: species === 'angel' ? ['flying'] : [],
         leader: tpl.leader, flavor, look, classKey: key,
       };
@@ -172,5 +190,22 @@
   }
   DH.HEROES = HEROES;
   DH.CLASSES = CLASSES;
+  DH.SPECIALS = {
+    aftershock:      { name: '不滅之壁', desc: '攻擊後對相鄰所有怪物再造成 50% 攻擊力傷害，並讓全隊獲得 5% 最大 HP 護盾' },
+    double:          { name: '二連擊', desc: '每次攻擊打兩次，第二擊 60% 攻擊力' },
+    chain_lightning: { name: '連鎖閃電', desc: '攻擊後閃電跳向最近的 3 隻其他怪物，依序造成 60%、40%、25% 攻擊力傷害' },
+    revive:          { name: '復生', desc: '治療量 ×2；每場一次，回合開始時讓一名陣亡隊友以 30% HP 復活' },
+    shadow_strike:   { name: '影分身', desc: '只攻擊一個目標時，影分身從背後再刺一次（100%）；目標 HP 低於 50% 時必定會心' },
+    quake_strike:    { name: '地震', desc: '攻擊後震動整列：同一列的所有怪物受 40% 攻擊力傷害並被擊退一格' },
+    holy_strike:     { name: '聖光', desc: '每次攻擊命中後全隊回復 5% 最大 HP；對亡靈與惡魔傷害 +100%' },
+    vines:           { name: '藤蔓', desc: '命中的怪物中毒 3 回合並減速；回合開始時藤蔓纏住最近的怪物（30% 暈眩）' },
+    soul_drain:      { name: '噬魂', desc: '回復造成傷害 100% 的 HP；命中中毒的怪物時，毒會蔓延到牠相鄰的怪物' },
+    double_crit:     { name: '鷹眼', desc: '每次攻擊打兩次，第二箭必定會心' },
+    encore:          { name: '安可', desc: '行動後，行動順序中的下一位英雄會再行動一次' },
+    queen:           { name: '女王', desc: '回合開始全隊 +10 能量；每次攻擊後全隊獲得 5% 最大 HP 護盾' },
+    tri_element:     { name: '三元素', desc: '命中時同時附加灼燒與減速，並對目標相鄰的怪物造成 50% 濺射' },
+    immovable:       { name: '不動明王', desc: '受到的傷害 -30%；被攻擊後對相鄰所有怪物反擊 60% 攻擊力' },
+  };
+  DH.LEGEND_RATE = 0.005;   // 每次召喚 0.5% 機率抽到傳說英雄
   DH.STARTER_HEROES = ['knight', 'warrior', 'archer'];
 })(window.DH);

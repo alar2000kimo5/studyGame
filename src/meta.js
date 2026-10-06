@@ -190,6 +190,12 @@
     // ── 召喚 ─────────────────────────────────────────
     summonCost() { return SUMMON_COST; }
     soulSummonCost() { return SOUL_SUMMON_COST; }
+    rollHero(soul) {
+      if (Math.random() < DH.LEGEND_RATE) { const pool = Object.values(DH.HEROES).filter(d => d.legendary); return pool[Math.floor(Math.random() * pool.length)]; }
+      const stars = this.rollStars(soul);
+      const pool = Object.values(DH.HEROES).filter(d => d.stars === stars && !d.legendary);
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
     rollStars(soul) {
       const entries = Object.entries(soul ? SOUL_RATES : SUMMON_RATES);
       let r = Math.random() * entries.reduce((a, [, w]) => a + w, 0);
@@ -199,9 +205,7 @@
     summon(soul) {
       if (soul) { if (this.d.soulSigils < SOUL_SUMMON_COST) return null; this.d.soulSigils -= SOUL_SUMMON_COST; }
       else { if (this.d.gems < SUMMON_COST) return null; this.d.gems -= SUMMON_COST; }
-      const stars = this.rollStars(soul);
-      const pool = Object.values(DH.HEROES).filter(d => d.stars === stars);
-      const def = pool[Math.floor(Math.random() * pool.length)];
+      const def = this.rollHero(soul);
       const h = this.addHero(def.id, true);
       const dup = this.d.heroes.some(o => o.id === def.id && o.uid !== h.uid);
       this.save();
@@ -213,9 +217,7 @@
       if (soul) this.d.soulSigils -= cost; else this.d.gems -= cost;
       const out = [];
       for (let i = 0; i < n; i++) {
-        const stars = this.rollStars(soul);
-        const pool = Object.values(DH.HEROES).filter(d => d.stars === stars);
-        const def = pool[Math.floor(Math.random() * pool.length)];
+        const def = this.rollHero(soul);
         const dup = this.d.heroes.some(o => o.id === def.id);
         const h = this.addHero(def.id, true);
         out.push({ hero: h, def, dup });

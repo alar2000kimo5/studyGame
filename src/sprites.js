@@ -164,6 +164,13 @@
     ctx.save();
     ctx.translate(x, y + 2);
     if (!opts.noShadow) shadow(ctx, 0, 22, 40 * (hero.lifted ? 1.3 : 1));
+    // 傳說英雄：旋轉符文光環
+    if (hero.legendary) {
+      ctx.save(); ctx.translate(0, 20); ctx.scale(1, 0.38);
+      ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 3); ctx.rotate(t * 0.8); ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.setLineDash([6, 5]); ctx.lineWidth = 3; ctx.strokeStyle = el.light; ctx.stroke(); ctx.setLineDash([]);
+      ctx.rotate(-t * 1.6); ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5 - Math.PI / 2; ctx.lineTo(Math.cos(a) * 30, Math.sin(a) * 30); } ctx.closePath(); ctx.lineWidth = 2; ctx.strokeStyle = PAL.gold; ctx.stroke();
+      ctx.restore();
+    }
     if (hero.lifted) ctx.translate(0, -14);
     const anim = hero.anim, ap = anim ? Math.min(1, anim.t / anim.dur) : 0;
     // 施法陣

@@ -114,12 +114,12 @@
   UI.heroCard = function (scene, ctx, h, x, y, w, hh, opts) {
     opts = opts || {};
     const meta = scene.game.meta, d = meta.def(h), el = DH.ELEMENTS[d.element];
-    S.rr(ctx, x, y, w, hh, 12); ctx.fillStyle = opts.selected ? '#3a2f55' : PAL.panel; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = opts.selected ? PAL.gold : el.dark; ctx.stroke();
+    S.rr(ctx, x, y, w, hh, 12); ctx.fillStyle = opts.selected ? '#3a2f55' : (d.legendary ? '#3a1a34' : PAL.panel); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = opts.selected ? PAL.gold : (d.legendary ? '#ff6ad5' : el.dark); ctx.stroke();
     S.rr(ctx, x, y, w, 5, 2); ctx.fillStyle = el.color; ctx.fill();
     const scale = opts.scale || 0.9;
     ctx.save(); ctx.beginPath(); S.rr(ctx, x + 1, y + 1, w - 2, hh - 2, 11); ctx.clip();
     ctx.translate(x + w / 2, y + hh * 0.42); ctx.scale(scale, scale);
-    DH.drawHero(ctx, { look: d.look, element: d.element, uid: h.uid.length, id: d.id, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, shieldHp: 0 }, 0, 0, scene.time, { noShadow: true });
+    DH.drawHero(ctx, { look: d.look, element: d.element, uid: h.uid.length, id: d.id, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, shieldHp: 0, legendary: d.legendary }, 0, 0, scene.time, { noShadow: true });
     ctx.restore();
     UI.stars(ctx, x + w / 2 - (h.stars - 1) * 6.9, y + 14, h.stars, 5);
     ctx.font = `bold 13px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.text; ctx.fillText(`${d.name}·${d.cls}`, x + w / 2, y + hh - 34);

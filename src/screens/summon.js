@@ -67,12 +67,13 @@
       const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 240); g.addColorStop(0, el.color + 'aa'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, C.W, C.H);
       for (let i = 0; i < 12; i++) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.time * 0.5 + i * Math.PI / 6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(300, -20); ctx.lineTo(300, 20); ctx.closePath(); ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.04 * (i % 2)})`; ctx.fill(); ctx.restore(); }
       const sc = 0.5 + 2.6 * (p < 0.6 ? p / 0.6 : 1) * (p >= 0.6 && p < 0.75 ? 1.08 : 1);
-      ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); DH.drawHero(ctx, { look: d.look, element: d.element, uid: 3, shieldHp: 0 }, 0, 0, this.time); ctx.restore();
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); DH.drawHero(ctx, { look: d.look, element: d.element, uid: 3, shieldHp: 0, legendary: d.legendary }, 0, 0, this.time); ctx.restore();
       if (p >= 1) {
         const q = Math.min(1, (this.revealT - 0.8) / 0.5);
         ctx.globalAlpha = q;
         ctx.font = `bold 30px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.7)';
         ctx.strokeText(`${d.name}・${d.cls}`, cx, 530); ctx.fillText(`${d.name}・${d.cls}`, cx, 530);
+        if (d.legendary) { ctx.font = `bold 18px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.strokeText(`傳說英雄「${d.title}」`, cx, 700); ctx.fillText(`傳說英雄「${d.title}」`, cx, 700); }
         for (let i = 0; i < d.stars; i++) UI.star(ctx, cx + (i - (d.stars - 1) / 2) * 34, 575, 14 * Math.min(1, Math.max(0, (this.revealT - 1.0 - i * 0.12) / 0.2)), PAL.gold, PAL.goldDark);
         let x = cx - 110; x += UI.chip(ctx, x, 600, el.name + '色', el.color) + 6; x += UI.chip(ctx, x, 600, DH.SPECIES[d.species], PAL.panelLight, PAL.text) + 6; UI.chip(ctx, x, 600, DH.PATTERNS[d.pattern].label, PAL[DH.PATTERNS[d.pattern].kind]);
         ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = r.dup ? '#ff9a5a' : PAL.text; ctx.fillText(r.dup ? '重複的英雄：可到兵營合併或退役' : '新英雄加入兵營！', cx, 640);
@@ -103,6 +104,7 @@
         UI.stars(ctx, x + cw / 2 - (d.stars - 1) * 5.75, y + 14, d.stars, 4.5);
         ctx.font = `bold 11px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.text; ctx.fillText(d.name, x + cw / 2, y + 108);
         ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(d.cls, x + cw / 2, y + 124);
+        if (d.legendary) { ctx.font = `bold 9px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.fillText('傳說', x + cw / 2, y + 30); }
         if (r.dup) { ctx.font = `bold 9px ${DH.FONT}`; ctx.fillStyle = '#ff9a5a'; ctx.fillText('重複', x + cw / 2, y + 140); } else { ctx.font = `bold 9px ${DH.FONT}`; ctx.fillStyle = PAL.heal; ctx.fillText('新！', x + cw / 2, y + 140); }
         ctx.restore();
         if (p >= 1) this.buttons.push({ x, y, w: cw, h: ch, onClick: () => { this.multi = null; this.result = r; this.revealT = 2; } });
@@ -160,16 +162,17 @@
       ctx.save(); ctx.beginPath(); ctx.rect(0, top, C.W, bottom - top); ctx.clip();
       let y = top + 10 - this.scrollY;
       const cols = 4, cw = 118, ch = 150, gap = 8, x0 = (C.W - cols * cw - (cols - 1) * gap) / 2;
-      for (let stars = 5; stars >= 1; stars--) {
-        const list = Object.values(DH.HEROES).filter(d => d.stars === stars && match(d));
+      for (let stars = 6; stars >= 1; stars--) {
+        const legendGroup = stars === 6;
+        const list = Object.values(DH.HEROES).filter(d => (legendGroup ? d.legendary : (d.stars === stars && !d.legendary)) && match(d));
         if (!list.length) continue;
-        ctx.font = `bold 14px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold;
-        ctx.fillText(`${stars}★　機率 ${K.SUMMON_RATES[stars]}%　${list.length} 位`, x0, y + 10);
-        UI.stars(ctx, x0 + 170, y + 10, stars, 6, 5);
+        ctx.font = `bold 14px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = legendGroup ? '#ff9ae0' : PAL.gold;
+        ctx.fillText(legendGroup ? `傳說英雄　機率 ${DH.LEGEND_RATE * 100}%　${list.length} 位（每職業一位，獨特攻擊方式）` : `${stars}★　機率 ${K.SUMMON_RATES[stars]}%　${list.length} 位`, x0, y + 10);
+        if (!legendGroup) UI.stars(ctx, x0 + 170, y + 10, stars, 6, 5);
         y += 28;
         list.forEach((d, i) => {
           const x = x0 + (i % cols) * (cw + gap), yy = y + Math.floor(i / cols) * (ch + gap), el = DH.ELEMENTS[d.element], sel = this.codexSel === d.id;
-          S.rr(ctx, x, yy, cw, ch, 12); ctx.fillStyle = sel ? '#3a2f55' : PAL.panel; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = sel ? PAL.gold : el.dark; ctx.stroke();
+          S.rr(ctx, x, yy, cw, ch, 12); ctx.fillStyle = sel ? '#3a2f55' : (d.legendary ? '#3a1a34' : PAL.panel); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = sel ? PAL.gold : (d.legendary ? '#ff6ad5' : el.dark); ctx.stroke();
           S.rr(ctx, x, yy, cw, 5, 2); ctx.fillStyle = el.color; ctx.fill();
           ctx.save(); ctx.beginPath(); S.rr(ctx, x + 1, yy + 1, cw - 2, ch - 2, 11); ctx.clip();
           ctx.translate(x + cw / 2, yy + 62); ctx.scale(0.8, 0.8); DH.drawHero(ctx, { look: d.look, element: d.element, uid: i + stars * 7, shieldHp: 0 }, 0, 0, this.time, { noShadow: true }); ctx.restore();
@@ -177,6 +180,7 @@
           ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`${el.name}色・${DH.PATTERNS[d.pattern].label}`, x + cw / 2, yy + 132);
           if (owned.has(d.id)) DH.drawBadge(ctx, x + 16, yy + 18, 10, '有', PAL.gold, '#2a2030', 10);
           if (d.support) DH.drawBadge(ctx, x + cw - 16, yy + 18, 10, '輔', PAL.heal, '#1a1420', 10);
+          if (d.legendary) { ctx.font = `bold 10px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = '#ff9ae0'; ctx.fillText(`「${d.title}」`, x + cw / 2, yy + 100); }
           if (yy + ch > top && yy < bottom) this.buttons.push({ x, y: Math.max(yy, top), w: cw, h: Math.min(yy + ch, bottom) - Math.max(yy, top), onClick: () => { this.codexSel = d.id; } });
         });
         y += Math.ceil(list.length / cols) * (ch + gap) + 12;
@@ -196,6 +200,7 @@
         ctx.fillText(`基礎：攻擊 ${d.atk}　防禦 ${d.def}　生命 ${d.hp}　隊長加成：同色隊友攻擊 +${Math.round(d.leader.atk * 100)}%、防禦 +${Math.round(d.leader.def * 100)}`, 28, dy + 48);
         ctx.fillStyle = PAL.text;
         const tl = d.talents.slice(0, 1 + d.stars).map((t, i) => `${i === 0 ? '職業' : ''}【${DH.TALENTS[t].name}】${DH.TALENTS[t].desc}`);
+        if (d.special) tl.unshift(`傳說【${DH.SPECIALS[d.special].name}】${DH.SPECIALS[d.special].desc}`);
         tl.forEach((s2, i) => { if (i < 4) ctx.fillText(s2, 28, dy + 70 + i * 18); });
         if (tl.length > 4) { ctx.fillStyle = PAL.textDim; ctx.fillText(`…還有 ${tl.length - 4} 個天賦（${d.talents.slice(5, 1 + d.stars).map(t => DH.TALENTS[t].name).join('、')}）`, 28, dy + 142); }
         ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專武：${DH.sigVariants(d.id).map(v => `${v[0]}（${v[1]}）`).join('、')}　種族效果：${DH.SIG_SPECIES[d.species].name}`.slice(0, 60), 28, dy + 162);

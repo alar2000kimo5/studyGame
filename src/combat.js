@@ -71,7 +71,8 @@
     let crit = false;
     let critChance = attacker.has('critical') ? 0.25 : 0;
     if (attacker.sig && attacker.sigSpecies === 'halfling') critChance += 0.25 * attacker.sig.scale;
-    if (!ctx.noRoll && critChance > 0 && Math.random() < critChance) { base *= 1.5; crit = true; notes.push('會心'); }
+    if (ctx.forceCrit || (!ctx.noRoll && critChance > 0 && Math.random() < critChance)) { base *= 1.5; crit = true; notes.push('會心'); }
+    if (attacker.special === 'holy_strike' && defender.def && (defender.def.race === 'undead' || defender.def.race === 'demon')) { base *= 2; notes.push('聖光'); }
     base *= 100 / (100 + (defender.defense || 0));
     if (defender.cursed > 0) base *= 1.3;
     if (defender.marked > 0) { base *= 1.5; notes.push('標記'); }

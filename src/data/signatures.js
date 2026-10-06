@@ -150,6 +150,21 @@
     guardian3: [["排隊守門錘", "排隊", "grant", ["taunt"]], ["排隊錘", "排隊", "grant", ["taunt"]], ["城門錘", "城門", "team_def", [10]]],
     guardian4: [["荊棘巨錘", "荊棘巨錘", "reflect", [45]], ["荊棘錘", "荊棘", "reflect", [45]], ["獸人守護錘", "獸人守護", "counter", [65]]],
     guardian5: [["推不開之錘", "推不開", "low_hp_def", [40]], ["推不開錘", "推不開", "low_hp_def", [40]], ["山脈守門錘", "守門", "shield_start", [30]]],
+    knightL: [["不滅之盾劍", "不滅", "shield_start", [30]], ["壁壘之心", "壁壘", "team_def", [12]], ["守望者長劍", "守望", "counter", [80]]],
+    warriorL: [["狂瀾雙斧", "狂瀾", "multi_bonus", [2, 45]], ["血潮戰斧", "血潮", "kill_heal", [18]], ["怒濤巨斧", "怒濤", "hp_to_atk", [9]]],
+    archerL: [["雙弦長弓", "雙弦", "range_pierce", []], ["銀月弓", "銀月", "first_strike", [55]], ["疾風弓", "疾風", "execute", [22]]],
+    mageL: [["雷霆法杖", "雷霆", "chain", [80]], ["風暴之杖", "風暴", "hit_stun", [40]], ["蒼雷杖", "蒼雷", "color_adv_up", [0.8]]],
+    clericL: [["復生聖錘", "復生之光", "heal_boost", [80]], ["天界聖錘", "天界", "wave_heal", [30]], ["慈悲錘", "慈悲", "support_def", [28]]],
+    rogueL: [["零之刃", "零", "execute", [25]], ["影分身刃", "影", "dodge", [35]], ["無名匕首", "無名", "moved_bonus", [50]]],
+    barbarianL: [["地震巨棍", "地裂", "push_far", [70]], ["震地棍", "震地", "vs_tag", ["big", 80]], ["山崩棍", "山崩", "single_bonus", [60]]],
+    paladinL: [["聖光聖錘", "聖光審判", "vs_tag", ["undead", 90]], ["曙光錘", "曙光", "team_atk", [10]], ["榮耀錘", "榮耀", "lifesteal", [50]]],
+    druidL: [["樹語杖", "樹語", "hit_poison", [3, 30]], ["古樹杖", "古樹", "regen_turn", [10]], ["森林之心", "森林", "wave_heal", [25]]],
+    witchL: [["噬魂杖", "噬魂", "lifesteal", [70]], ["蔓毒杖", "蔓毒", "poison_amp", [75]], ["黑月杖", "黑月", "hit_stun", [35]]],
+    hunterL: [["鷹眼弓", "鷹眼", "single_bonus", [60]], ["獵王弓", "獵王", "vs_tag", ["beast", 90]], ["天穹弓", "天穹", "first_strike", [60]]],
+    bardL: [["安可琴", "安可", "team_atk", [14]], ["謝幕琴", "謝幕", "support_atk", [35]], ["狂想曲琴", "狂想", "drag_time", [2.5]]],
+    princessL: [["女王權杖", "女王", "team_def", [16]], ["加冕杖", "加冕", "support_def", [30]], ["王冠之杖", "王冠", "wave_heal", [28]]],
+    elementalistL: [["三元素球", "三元素", "multi_bonus", [2, 55]], ["熔冰雷球", "熔冰雷", "burn_amp", [70]], ["創世之球", "創世", "chain", [80]]],
+    guardianL: [["不動明王錘", "不動明王", "reflect", [55]], ["磐石錘", "磐石", "low_hp_def", [50]], ["山門錘", "山門", "shield_start", [35]]],
   };
 
   DH.sigVariants = heroId => DH.HERO_SIGS[heroId] || [];
