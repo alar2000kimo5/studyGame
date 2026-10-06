@@ -118,7 +118,7 @@
     }
     drawPicker(ctx) {
       const m = this.game.meta, h = this.h, slot = DH.GEAR_SLOTS.find(s => s.key === this.picker);
-      const items = m.d.gear.filter(g => g.slot === slot.key).sort((a, b) => DH.RARITY_ORDER.indexOf(b.rarity) - DH.RARITY_ORDER.indexOf(a.rarity));
+      const items = m.d.gear.filter(g => g.slot === slot.key).sort((a, b) => (DH.rarityRank(b.rarity) - DH.rarityRank(a.rarity)) || ((m.canEquip(h, b) ? 1 : 0) - (m.canEquip(h, a) ? 1 : 0)));
       this.buttons = [];
       ctx.fillStyle = 'rgba(4,2,10,0.75)'; ctx.fillRect(0, 0, C.W, C.H);
       UI.panel(ctx, 30, 140, 480, 680, { radius: 18, fill: PAL.panel });
@@ -133,9 +133,9 @@
         const y = 220 + i * 62 - (this.pickerScroll || 0);
         S.rr(ctx, 46, y, 448, 54, 10); ctx.fillStyle = '#2a2340'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = DH.RARITIES[g.rarity].color; ctx.stroke();
         ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[g.rarity].color; ctx.fillText(DH.gearLabel(g), 60, y + 18);
-        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.gearStatLabel(g), 60, y + 38);
+        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.gearStatLabel(g) + (g.heroId ? `　專屬：${DH.HEROES[g.heroId].name}·${DH.HEROES[g.heroId].cls}` : ''), 60, y + 38);
         if (y > 150 && y < 760) {
-          UI.button(this, ctx, 330, y + 10, 70, 34, '裝備', { size: 13, fill: PAL.gold, textColor: '#2a2030', onClick: () => { m.equip(h, g); this.picker = null; this.flash('裝備完成'); } });
+          UI.button(this, ctx, 330, y + 10, 70, 34, '裝備', { size: 13, fill: PAL.gold, textColor: '#2a2030', disabled: !m.canEquip(h, g), onClick: () => { m.equip(h, g); this.picker = null; this.flash('裝備完成'); } });
           UI.button(this, ctx, 408, y + 10, 76, 34, `賣 ${Math.round(DH.RARITIES[g.rarity].price * 0.4)}金`, { size: 11, fill: '#4a3a2a', onClick: () => { m.sellGear(g); } });
         }
       });

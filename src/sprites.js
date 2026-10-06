@@ -34,9 +34,9 @@
   }
 
   // ───────────────────────── 英雄 ─────────────────────────
-  const RARITY_GLOW = { magic: '#5aa0ff', epic: '#b464ff', mythic: '#ff7a3a', legendary: '#ffd24a' };
+  const RARITY_GLOW = { magic: '#5aa0ff', epic: '#b464ff', mythic: '#ff7a3a', legendary: '#ffd24a', signature: '#ff6ad5' };
   function drawWeapon(ctx, kind, x, y, el, t, rarity) {
-    const gold = '#e6b84a', steel = rarity ? { magic: '#cfe0ff', epic: '#e6ccff', mythic: '#ffd2b0', legendary: '#fff0b0' }[rarity] : '#cfd6e2', steelDark = '#8b95a6', wood = '#8a5a30';
+    const gold = '#e6b84a', steel = rarity ? { magic: '#cfe0ff', epic: '#e6ccff', mythic: '#ffd2b0', legendary: '#fff0b0', signature: '#ffd6f4' }[rarity] : '#cfd6e2', steelDark = '#8b95a6', wood = '#8a5a30';
     if (rarity) {
       const g = RARITY_GLOW[rarity];
       ctx.save(); ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 4); ctx.shadowColor = g; ctx.shadowBlur = 14;
@@ -433,5 +433,6 @@
     ctx.beginPath(); ctx.moveTo(x, y - r + 2); ctx.lineTo(x + r - 2, y); ctx.lineTo(x, y); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
   };
 
+  DH.drawWeaponIcon = function (ctx, kind, x, y, el, t, rarity) { ctx.save(); ctx.translate(x - 17, y + 10); drawWeapon(ctx, kind, 0, 0, el, t, rarity); ctx.restore(); };
   DH.shapes = { rr, ell, circ, fillStroke, shade };
 })(window.DH);

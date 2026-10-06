@@ -5,7 +5,8 @@
   const MAX_LEVEL = 75, MAX_LEVEL_ASC = 85;
   const ASCEND_GOLD = { 1: 1000, 2: 2500, 3: 5000, 4: 20000, 5: 50000 };
   const ASCEND_LEVEL = { 1: 30, 2: 40, 3: 50, 4: 60, 5: 70 };
-  const SUMMON_COST = 300, SOUL_SUMMON_COST = 350;
+  const SUMMON_COST = 300, SOUL_SUMMON_COST = 350, WEAPON_SUMMON_COST = 150;
+  const SIGNATURE_RATE = 0.05;
   const SUMMON_RATES = { 1: 40, 2: 30, 3: 19, 4: 8, 5: 3 };
   let heroUid = 1;
 
@@ -28,6 +29,7 @@
       }
       // 測試用：一次性補 100 萬靈魂印記（要拿掉時刪除這兩行即可）
       if (!this.d.testGrant) { this.d.soulSigils += 1000000; this.d.testGrant = true; }
+      if (!this.d.testGrant2) { this.d.gems += 100000; this.d.testGrant2 = true; }
       heroUid = Math.max(heroUid, ...this.d.heroes.map(h => parseInt(String(h.uid).replace(/\D/g, ''), 10) + 1 || 1));
       this.save();
     }
@@ -67,6 +69,7 @@
       if (tal.includes('ascended_power')) { atk *= 1.15; hp *= 1.15; }
       for (const g of Object.values(h.gear)) {
         if (g.stat === 'atk') atk *= 1 + g.pct; else if (g.stat === 'hp') hp *= 1 + g.pct; else def += Math.round(g.pct * 100);
+        if (g.bonus) { if (g.bonus.atk) atk *= 1 + g.bonus.atk; if (g.bonus.hp) hp *= 1 + g.bonus.hp; if (g.bonus.def) def += Math.round(g.bonus.def * 100); }
       }
       if (leaderBonus) { atk *= 1 + (leaderBonus.atk || 0); def += Math.round((leaderBonus.def || 0) * 100); }
       return { hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def) };
@@ -87,11 +90,13 @@
       this.d.tokens -= this.talentCost(h); h.unlocked++; this.save(); return true;
     }
     // ── 裝備 ─────────────────────────────────────────
+    canEquip(h, gear) { return !gear.heroId || gear.heroId === h.id; }
     equip(h, gear) {
+      if (!this.canEquip(h, gear)) return false;
       const prev = h.gear[gear.slot];
       if (prev) this.d.gear.push(prev);
       this.d.gear = this.d.gear.filter(g => g.uid !== gear.uid);
-      h.gear[gear.slot] = gear; this.save();
+      h.gear[gear.slot] = gear; this.save(); return true;
     }
     unequip(h, slot) { const g = h.gear[slot]; if (!g) return; delete h.gear[slot]; this.d.gear.push(g); this.save(); }
     sellGear(gear) { this.d.gear = this.d.gear.filter(g => g.uid !== gear.uid); this.d.gold += Math.round(DH.RARITIES[gear.rarity].price * 0.4); this.save(); }
@@ -149,6 +154,37 @@
       this.save();
       return { hero: h, def, dup };
     }
+    summonMany(soul, n) {
+      const unit = soul ? SOUL_SUMMON_COST : SUMMON_COST, cost = n >= 10 ? Math.round(unit * n * (soul ? 1 : 0.9)) : unit * n;
+      if (soul ? this.d.soulSigils < cost : this.d.gems < cost) return null;
+      if (soul) this.d.soulSigils -= cost; else this.d.gems -= cost;
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const stars = this.rollStars(soul ? 4 : 1);
+        const pool = Object.values(DH.HEROES).filter(d => d.stars === stars);
+        const def = pool[Math.floor(Math.random() * pool.length)];
+        const dup = this.d.heroes.some(o => o.id === def.id);
+        const h = this.addHero(def.id, true);
+        out.push({ hero: h, def, dup });
+      }
+      this.save(); return out;
+    }
+    summonCostFor(soul, n) { const unit = soul ? SOUL_SUMMON_COST : SUMMON_COST; return n >= 10 ? Math.round(unit * n * (soul ? 1 : 0.9)) : unit * n; }
+    // ── 武器召喚：一般武器（稀有度偏高）或專屬武器（5%，十連保底一把）──
+    weaponSummonCost(n) { return n >= 10 ? WEAPON_SUMMON_COST * 9 : WEAPON_SUMMON_COST * n; }
+    weaponSummon(n) {
+      const cost = this.weaponSummonCost(n);
+      if (this.d.gems < cost) return null;
+      this.d.gems -= cost;
+      const ids = Object.keys(DH.HEROES), out = [];
+      for (let i = 0; i < n; i++) {
+        if (Math.random() < SIGNATURE_RATE) out.push(DH.makeSignature(ids[Math.floor(Math.random() * ids.length)]));
+        else out.push(DH.makeGear('weapon', DH.rollRarity(3)));
+      }
+      if (n >= 10 && !out.some(g => g.rarity === 'signature')) out[n - 1] = DH.makeSignature(ids[Math.floor(Math.random() * ids.length)]);
+      for (const g of out) this.d.gear.push(g);
+      this.save(); return out;
+    }
     // ── 戰利品 ───────────────────────────────────────
     rewardFor(dungeon, stars) {
       const id = dungeon.id, first = !this.d.firstClear[id];
@@ -175,5 +211,5 @@
     buyXp(color) { if (this.d.gems < 100) return false; this.d.gems -= 100; this.d.xp[color] += 500; this.save(); return true; }
   }
   DH.Meta = Meta;
-  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SUMMON_COST, SOUL_SUMMON_COST, COLORS };
+  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SUMMON_COST, SOUL_SUMMON_COST, WEAPON_SUMMON_COST, SIGNATURE_RATE, COLORS };
 })(window.DH);
