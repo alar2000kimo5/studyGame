@@ -44,8 +44,7 @@
       }
       // 地形
       const mp = posOf(mover);
-      if (b.tAt(mp[0], mp[1]) === 'F' && !b.ignoresTerrain(mover) && !mover.hasSig('fire_walker')) score -= 120;
-      for (const s of swapped) { const sp = posOf(s); if (b.tAt(sp[0], sp[1]) === 'F' && !b.ignoresTerrain(s)) score -= 120; }
+      for (const u of [mover, ...swapped]) { const up = posOf(u); const t = b.tAt(up[0], up[1]); if (!b.ignoresTerrain(u) && ((t === 'F' && !u.hasSig('fire_walker')) || 'SPT'.includes(t))) score -= 120; }
       return score;
     };
 
@@ -63,7 +62,7 @@
         for (const [dc, dr] of G.ALL) {
           const next = [pos[0] + dc, pos[1] + dr];
           if (!b.canEnter(hero, next[0], next[1])) continue;
-          if (b.tAt(next[0], next[1]) === 'I' && !b.ignoresTerrain(hero)) continue;
+          if ('IE'.includes(b.tAt(next[0], next[1])) && !b.ignoresTerrain(hero)) continue;
           if (path.some(p => p[0] === next[0] && p[1] === next[1])) continue;
           const u = unitAt(next[0], next[1]);
           if (u && u.side === 'monster') continue;

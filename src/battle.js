@@ -12,13 +12,17 @@
       this.game = game; this.dungeon = dungeon; this.theme = DH.THEMES[dungeon.theme];
       this.time = 0; this.turn = 1; this.stageIdx = 0; this.state = 'idle'; this.dead = false;
       this.fx = new DH.FX(); this.log = []; this.info = null; this.banner = null;
-      this.terrain = dungeon.terrain || Array.from({ length: C.ROWS }, () => '.'.repeat(C.COLS));
+      this.terrain = (dungeon.terrain || Array.from({ length: C.ROWS }, () => '.'.repeat(C.COLS))).map(row => row.split(''));
       this.obstacles = new Set();
       for (let r = 0; r < C.ROWS; r++) for (let c = 0; c < C.COLS; c++) if ('#R'.includes(this.terrain[r][c])) this.obstacles.add(G.key(c, r));
       this.scaleM = dungeon.scale || null;
       const defs = (heroDefs && heroDefs.length) ? heroDefs : dungeon.heroes;
       const n = defs.length, c0 = Math.floor((C.COLS - n) / 2);
-      this.heroes = defs.map((d, i) => new DH.Hero(d, [c0 + i, C.HERO_ROW]));
+      // 起始格：優先最底列靠中間的非虛空格，不夠再往上一列
+      const startCells = [];
+      for (const r of [C.HERO_ROW, C.HERO_ROW - 1, C.HERO_ROW - 2]) for (const c of [3, 2, 4, 1, 5, 0, 6]) if (startCells.length < n && !'X#RW'.includes(this.terrain[r][c]) && !startCells.some(p => p[0] === c && p[1] === r)) startCells.push([c, r]);
+      startCells.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+      this.heroes = defs.map((d, i) => new DH.Hero(d, startCells[i] || [c0 + i, C.HERO_ROW]));
       this.moveTime = C.MOVE_TIME + (this.heroes.some(h => h.has('swift')) ? 1 : 0) + Math.max(0, ...this.heroes.map(h => h.hasSig('drag_time') ? h.sigParam(0) * h.sig.scale : 0));
       this.movedSet = new Set(); this.reward = null;
       this.turnOrder = this.heroes.slice(); this.turnOrder.forEach((h, i) => h.order = i + 1);
@@ -36,9 +40,31 @@
     isObstacle(c, r) { return this.obstacles.has(G.key(c, r)); }
     tAt(c, r) { return G.inBounds(c, r) ? this.terrain[r][c] : '#'; }
     ignoresTerrain(u) { return u.flying || u.hasSig('terrain_immune'); }
-    canEnter(u, c, r) { if (!G.inBounds(c, r)) return false; const t = this.tAt(c, r); if (t === '#' || t === 'R') return false; if (t === 'W' && !u.flying) return false; return true; }
+    canEnter(u, c, r) { if (!G.inBounds(c, r)) return false; const t = this.tAt(c, r); if (t === '#' || t === 'R' || t === 'X') return false; if (t === 'W' && !u.flying) return false; return true; }
+    isTrap(c, r) { return DH.TRAPS.includes(this.tAt(c, r)); }
+    // 炸彈：踩到就爆，波及周圍八格，之後消失
+    triggerBomb(u, c, r) {
+      if (this.tAt(c, r) !== 'E' || this.ignoresTerrain(u)) return;
+      this.terrain[r][c] = '.';
+      const center = G.cellCenter(c, r);
+      this.fx.burst(center.x, center.y, '#ff7a3a', 18); this.fx.ring(center.x, center.y, '#ffb03a');
+      const victims = [u].concat(G.neighbors8([c, r]).map(p => this.unitAt(p[0], p[1])).filter(v => v && v !== u));
+      for (const v of victims) { const dmg = Math.max(1, Math.round(v.maxHp * 0.20)); v.takeDamage(dmg); this.fx.text(v.x, v.y - 30, `-${dmg}`, '#ff9a3a', { size: 18 }); }
+      this.addLog(`${u.name} 踩到炸彈！`);
+    }
+    // 停在格子上的陷阱：尖刺、傳送門
+    landTrap(u) {
+      if (!u.alive || this.ignoresTerrain(u)) return;
+      const t = this.tAt(u.col, u.row);
+      if (t === 'S') { const dmg = Math.max(1, Math.round(u.maxHp * 0.15)); u.takeDamage(dmg); this.fx.text(u.x, u.y - 30, `-${dmg}`, '#d8d8e8', { size: 18 }); this.fx.text(u.x, u.y - 50, '尖刺', '#d8d8e8', { size: 12, dur: 0.9 }); }
+      else if (t === 'T') {
+        let other = null;
+        for (let r = 0; r < C.ROWS; r++) for (let c = 0; c < C.COLS; c++) if (this.terrain[r][c] === 'T' && (c !== u.col || r !== u.row)) other = [c, r];
+        if (other && !this.unitAt(other[0], other[1])) { this.fx.ring(u.x, u.y, '#c79af0'); u.setCell(other[0], other[1]); u.snap(); this.fx.ring(u.x, u.y, '#c79af0'); this.fx.text(u.x, u.y - 50, '傳送', '#c79af0', { size: 12, dur: 0.9 }); }
+      }
+    }
     moveCost(u, c, r) { return this.tAt(c, r) === 'M' && !this.ignoresTerrain(u) ? 2 : 1; }
-    isFree(c, r, u) { return G.inBounds(c, r) && (u ? this.canEnter(u, c, r) : !'#RW'.includes(this.tAt(c, r))) && !this.unitAt(c, r); }
+    isFree(c, r, u) { return G.inBounds(c, r) && (u ? this.canEnter(u, c, r) : !'#RWX'.includes(this.tAt(c, r))) && !this.unitAt(c, r); }
     // 冰：從 from 往 dir 方向進入 cell 後持續滑行，回傳停下的格子
     slideOnIce(u, cell, dir) {
       if (this.ignoresTerrain(u)) return cell;
@@ -65,11 +91,11 @@
       for (const sp of this.dungeon.stages[idx]) {
         let pos = sp.pos;
         const probe = new DH.Monster(sp.id, pos, this.scaleM);
-        if (!this.isFree(pos[0], pos[1], probe) || (!probe.flying && 'FI'.includes(this.tAt(pos[0], pos[1])))) {
+        if (!this.isFree(pos[0], pos[1], probe) || (!probe.flying && 'FISPET'.includes(this.tAt(pos[0], pos[1])))) {
           let found = null;
           for (let r = 0; r < C.ROWS && !found; r++) for (let dc = 0; dc < C.COLS && !found; dc++) {
             const c = (pos[0] + (dc % 2 ? -1 : 1) * Math.ceil(dc / 2) + C.COLS) % C.COLS;
-            if (this.isFree(c, r, probe) && (probe.flying || !'FI'.includes(this.tAt(c, r)))) found = [c, r];
+            if (this.isFree(c, r, probe) && (probe.flying || !'FISPET'.includes(this.tAt(c, r)))) found = [c, r];
           }
           pos = found || pos;
         }
@@ -148,6 +174,7 @@
         d.changed = true;
       }
       hero.setCell(to[0], to[1]); d.last = to;
+      this.triggerBomb(hero, to[0], to[1]);
       const t = this.tAt(to[0], to[1]);
       if (t === 'M' && !this.ignoresTerrain(hero)) { d.timer -= 0.5; this.fx.text(hero.x, hero.y - 40, '-0.5s', '#c8a070', { size: 12, dur: 0.7 }); }
       if (t === 'I' && !this.ignoresTerrain(hero)) {
@@ -172,6 +199,7 @@
       this.turnOrder = this.pendingOrder || this.turnOrder;
       this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.movedSet = new Set([d.hero, ...d.swaps]);
+      for (const h of this.movedSet) this.landTrap(h);
       this.resolveTurn();
     }
 
@@ -344,9 +372,15 @@
     async fireTick(units) {
       let any = false;
       for (const u of units) {
-        if (!u.alive || this.tAt(u.col, u.row) !== 'F' || this.ignoresTerrain(u) || u.hasSig('fire_walker')) continue;
-        const dmg = Math.max(1, Math.round(u.maxHp * 0.10)); u.takeDamage(dmg); u.status.burn = { turns: 1, dmg: Math.round(u.maxHp * 0.05) };
-        this.fx.text(u.x, u.y - 30, `-${dmg}`, '#ff9a3a', { size: 18 }); this.fx.burst(u.x, u.y - 6, '#ff7a3a', 8); any = true;
+        if (!u.alive || this.ignoresTerrain(u)) continue;
+        const t = this.tAt(u.col, u.row);
+        if (t === 'F' && !u.hasSig('fire_walker')) {
+          const dmg = Math.max(1, Math.round(u.maxHp * 0.10)); u.takeDamage(dmg); u.status.burn = { turns: 1, dmg: Math.round(u.maxHp * 0.05) };
+          this.fx.text(u.x, u.y - 30, `-${dmg}`, '#ff9a3a', { size: 18 }); this.fx.burst(u.x, u.y - 6, '#ff7a3a', 8); any = true;
+        } else if (t === 'P') {
+          u.status.poison = { turns: 3, dmg: Math.max(1, Math.round(u.maxHp * 0.05)) };
+          this.fx.text(u.x, u.y - 30, '中毒', '#b96cff', { size: 14 }); any = true;
+        }
       }
       if (any) await sleep(450);
     }
@@ -369,13 +403,16 @@
         const plan = DH.planMonster(m, this);
         m.speed = baseSpeed;
         if (!plan) continue;
-        for (const step of plan.path) { m.setCell(step[0], step[1]); await sleep(120); }
+        for (const step of plan.path) { m.setCell(step[0], step[1]); this.triggerBomb(m, step[0], step[1]); await sleep(120); if (!m.alive) break; }
+        if (!m.alive) { this.actor = null; continue; }
+        if (plan.path.length) { this.landTrap(m); if (!m.alive) { this.actor = null; continue; } }
         if (plan.path.length) {
           const last = plan.path[plan.path.length - 1], prev = plan.path.length > 1 ? plan.path[plan.path.length - 2] : null;
           if (prev && this.tAt(last[0], last[1]) === 'I') { const end = this.slideOnIce(m, last, [last[0] - prev[0], last[1] - prev[1]]); if (end !== last) { m.setCell(end[0], end[1]); this.fx.text(m.x, m.y - 40, '滑行', '#bfe8ff', { size: 12, dur: 0.7 }); plan.targets.length = 0; } }
           await sleep(100);
         }
         const targets = plan.targets.filter(h => h.alive);
+        m.idleTurns = targets.length ? 0 : (m.idleTurns || 0) + 1;
         if (targets.length) {
           const el = DH.ELEMENTS[m.element];
           if (m.pattern.kind === 'melee') {
@@ -512,6 +549,11 @@
       S.rr(ctx, bx - 4, by - 4, bw + 8, bh + 8, 8); ctx.fillStyle = T.edge; ctx.fill();
       for (let r = 0; r < C.ROWS; r++) for (let c = 0; c < C.COLS; c++) {
         const x = bx + c * C.CELL, y = by + r * C.CELL;
+        if (this.terrain[r][c] === 'X') {
+          S.rr(ctx, x + 1.5, y + 1.5, C.CELL - 3, C.CELL - 3, 7); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fill();
+          ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.stroke();
+          continue;
+        }
         const base = (c + r) % 2 ? T.a : T.b;
         S.rr(ctx, x + 1.5, y + 1.5, C.CELL - 3, C.CELL - 3, 7); ctx.fillStyle = base; ctx.fill();
         ctx.beginPath(); ctx.moveTo(x + 7, y + 3.5); ctx.lineTo(x + C.CELL - 7, y + 3.5); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.stroke();
@@ -552,6 +594,19 @@
         S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#5a4630'; ctx.fill();
         for (let i = 0; i < 3; i++) { S.ell(ctx, x + 16 + i * 18 + (seed % 3) * 2, y + 20 + ((i + seed) % 3) * 14, 9, 5); ctx.fillStyle = '#4a3824'; ctx.fill(); }
         S.ell(ctx, x + 30, y + 40, 12, 4); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+      } else if (t === 'S') {
+        for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) { const sx = x + 14 + i * 21, sy = y + 16 + k * 20; ctx.beginPath(); ctx.moveTo(sx - 6, sy + 6); ctx.lineTo(sx, sy - 8); ctx.lineTo(sx + 6, sy + 6); ctx.closePath(); S.fillStroke(ctx, '#c8ccd8', '#2a2630', 1.5); }
+      } else if (t === 'P') {
+        S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = 'rgba(120,60,160,0.55)'; ctx.fill();
+        for (let i = 0; i < 4; i++) { const by = y + cs - 12 - ((tm * 18 + i * 17 + seed * 5) % 50), bx = x + 12 + i * 14 + Math.sin(tm * 3 + i) * 4; ctx.globalAlpha = 0.5; S.circ(ctx, bx, by, 5 + (i % 2) * 2); ctx.fillStyle = '#c79af0'; ctx.fill(); }
+      } else if (t === 'E') {
+        S.circ(ctx, x + cs / 2, y + cs / 2, 20); ctx.fillStyle = 'rgba(120,20,20,0.5)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#ff5a3a'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+        S.circ(ctx, x + cs / 2, y + cs / 2 + 2, 10); S.fillStroke(ctx, '#2a2430', '#111', 2);
+        ctx.beginPath(); ctx.moveTo(x + cs / 2 + 4, y + cs / 2 - 6); ctx.quadraticCurveTo(x + cs / 2 + 12, y + cs / 2 - 12, x + cs / 2 + 10, y + cs / 2 - 18); ctx.lineWidth = 2; ctx.strokeStyle = '#a07040'; ctx.stroke();
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(tm * 10); S.circ(ctx, x + cs / 2 + 10, y + cs / 2 - 18, 3); ctx.fillStyle = '#ffd24a'; ctx.fill();
+      } else if (t === 'T') {
+        for (let i = 0; i < 3; i++) { ctx.save(); ctx.translate(x + cs / 2, y + cs / 2); ctx.rotate(tm * (1.2 + i * 0.6) * (i % 2 ? -1 : 1)); ctx.beginPath(); ctx.arc(0, 0, 22 - i * 6, 0, Math.PI * 1.5); ctx.lineWidth = 3; ctx.strokeStyle = ['#c79af0', '#8c52c8', '#e8d8ff'][i]; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore(); }
+        ctx.globalAlpha = 0.5 + 0.3 * Math.sin(tm * 4); S.circ(ctx, x + cs / 2, y + cs / 2, 8); ctx.fillStyle = '#e8d8ff'; ctx.fill();
       } else if (t === 'W' || t === 'B') {
         S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#2f6a98'; ctx.fill();
         for (let i = 0; i < 3; i++) { const wy = y + 14 + i * 18 + Math.sin(tm * 2 + i + c) * 2; ctx.beginPath(); for (let k = 0; k <= 6; k++) { const wx = x + 6 + k * 9.5; const yy = wy + Math.sin(tm * 3 + k * 0.9 + i + r) * 2.5; if (k === 0) ctx.moveTo(wx, yy); else ctx.lineTo(wx, yy); } ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(180,225,255,0.55)'; ctx.stroke(); }
@@ -680,7 +735,7 @@
       if (u.terrain) {
         ctx.font = `bold 15px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(`地形：${DH.TERRAIN_NAMES[u.terrain]}`, x, y + 8);
         ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; UI_wrap(ctx, DH.TERRAIN_DESC[u.terrain] || '', x, y + 32, w, 17);
-        ctx.fillStyle = PAL.text; ctx.fillText('飛行單位（天使、蝙蝠、龍等）無視冰、火、泥與河，但不能穿牆。', x, y + 66);
+        ctx.fillStyle = PAL.text; ctx.fillText('飛行單位無視冰、火、泥、河與所有陷阱，但不能穿牆，也不能進入虛空。', x, y + 66);
         ctx.fillStyle = PAL.textDim; ctx.font = `11px ${DH.FONT}`; ctx.textAlign = 'right'; ctx.fillText('點擊空白處關閉', x + w, y + 84); ctx.textAlign = 'left';
         return;
       }

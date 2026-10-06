@@ -7,11 +7,11 @@
   DH.planMonster = function (m, board) {
     const heroes = board.heroes.filter(h => h.alive);
     if (!heroes.length) return null;
+    const ignores = board.ignoresTerrain(m);
     const occupied = new Set();
     for (const u of board.allUnits()) if (u.alive && u !== m) occupied.add(G.key(u.col, u.row));
-    const reach = G.reachableCost(m.pos, m.speed, (c, r) => !occupied.has(G.key(c, r)) && board.canEnter(m, c, r), (c, r) => board.moveCost(m, c, r));
-    const ignores = board.ignoresTerrain(m);
-    const badCell = (c, r) => !ignores && (board.tAt(c, r) === 'I' || board.tAt(c, r) === 'F');
+    const reach = G.reachableCost(m.pos, m.speed, (c, r) => !occupied.has(G.key(c, r)) && board.canEnter(m, c, r) && (ignores || board.tAt(c, r) !== 'E'), (c, r) => board.moveCost(m, c, r));
+    const badCell = (c, r) => !ignores && 'IFSPET'.includes(board.tAt(c, r));
 
     const isHero = (c, r) => { const u = board.unitAt(c, r); return !!u && u.side === 'hero' && u.alive; };
     const isMon = (c, r) => { const u = board.unitAt(c, r); return !!u && u.side === 'monster' && u.alive && u !== m; };
@@ -37,8 +37,9 @@
 
     const byMinDist = (arr) => { const d = Math.min(...arr.map(o => o.dist)); return arr.filter(o => o.dist === d); };
     let choice = null;
+    const ai = (m.ai === 'evade' && (m.idleTurns || 0) >= 2) ? 'charge' : m.ai;
     if (attackable.length) {
-      switch (m.ai) {
+      switch (ai) {
         case 'tactician': {
           const mx = Math.max(...attackable.map(o => o.targets.length));
           choice = pick(byMinDist(attackable.filter(o => o.targets.length === mx)));
@@ -67,16 +68,16 @@
 
     // 打不到任何人：依 AI 移動
     let dest;
-    if (m.ai === 'evade') {
+    if (ai === 'evade') {
       const far = Math.max(...usable.map(o => o.nearest));
       dest = pick(usable.filter(o => o.nearest === far));
-    } else if (m.ai === 'unpredictable') {
+    } else if (ai === 'unpredictable') {
       const cur = options.find(o => o.dist === 0);
       const closer = usable.filter(o => o.nearest < cur.nearest);
       dest = closer.length ? pick(closer) : pick(usable);
     } else {
       let goal = heroes;
-      if (m.ai === 'assassin') { const mh = Math.min(...heroes.map(h => h.hp)); goal = heroes.filter(h => h.hp === mh); }
+      if (ai === 'assassin') { const mh = Math.min(...heroes.map(h => h.hp)); goal = heroes.filter(h => h.hp === mh); }
       const scored = usable.map(o => ({ o, d: Math.min(...goal.map(h => G.chebyshev(o.pos, h.pos))) }));
       const best = Math.min(...scored.map(s => s.d));
       dest = pick(byMinDist(scored.filter(s => s.d === best).map(s => s.o)));
