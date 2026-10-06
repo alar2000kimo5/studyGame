@@ -34,6 +34,10 @@
       ctx.fillText('隊長加成（同色隊友）', 20, y + 34); ctx.fillStyle = PAL.text;
       ctx.fillText(`攻擊 +${Math.round(d.leader.atk * 100)}%　防禦 +${Math.round(d.leader.def * 100)}`, 20, y + 52);
       if (lb) { ctx.fillStyle = PAL.gold; ctx.fillText('✓ 目前受隊長加成', 20, y + 70); }
+      const cv = DH.CLASS_VS_RACE[d.classKey], spv = DH.SPECIES_VS_RACE[d.species];
+      ctx.fillStyle = PAL.textDim; ctx.fillText('克制', 20, y + 94);
+      ctx.fillStyle = PAL.text; ctx.fillText(`專精 ${DH.RACE_NAMES[cv[0]]} +${Math.round(cv[1] * 100)}%`, 20, y + 112);
+      ctx.fillText(`克 ${DH.RACE_NAMES[spv.beats]}・被 ${DH.RACE_NAMES[spv.weak]} 克`, 20, y + 130);
       // 右上：攻擊模式／輔助模式
       DH.drawPatternIcon(ctx, DH.PATTERNS[d.pattern], C.W - 60, y - 4, 40);
       ctx.textAlign = 'right'; ctx.fillStyle = PAL.text; ctx.font = `bold 12px ${DH.FONT}`; ctx.fillText(DH.PATTERNS[d.pattern].label, C.W - 66, y + 16);

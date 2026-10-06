@@ -76,7 +76,33 @@
       const names = [...new Set(d.stages.flat().map(m => DH.MONSTERS[m.id].name))];
       ctx.fillStyle = PAL.text; UI.wrap(ctx, '敵人：' + names.join('、'), 372, 768, 140, 15, 3);
       UI.button(this, ctx, 372, 828, 140, 44, '出發 ▶', { fill: PAL.gold, textColor: '#2a2030', size: 19, onClick: () => this.game.showTeam(d) });
+      UI.button(this, ctx, 28, 838, 110, 34, '克制表', { size: 13, onClick: () => { this.help = true; } });
       UI.nav(this, ctx, 'campaign');
+      if (this.help) this.drawHelp(ctx);
+    }
+    drawHelp(ctx) {
+      this.buttons = [];
+      ctx.fillStyle = 'rgba(4,2,10,0.94)'; ctx.fillRect(0, 0, C.W, C.H);
+      ctx.font = `bold 24px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText('克制關係', C.W / 2, 50);
+      let y = 96;
+      const h2 = (t) => { ctx.font = `bold 15px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.gold; ctx.fillText(t, 28, y); y += 24; };
+      const line = (t, c) => { ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = c || PAL.text; y = UI.wrap(ctx, t, 28, y, 484, 19) + 2; };
+      h2('顏色克制（×1.5 / 被克 ×0.75）');
+      const E = DH.ELEMENTS; let x = 28;
+      ['red', 'green', 'blue', 'red'].forEach((k, i) => { x += UI.chip(ctx, x, y - 9, E[k].name + '色', E[k].color) + 4; if (i < 3) { ctx.fillStyle = PAL.text; ctx.font = `bold 13px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillText('›', x, y); x += 14; } });
+      x += 10; x += UI.chip(ctx, x, y - 9, '光色', E.light.color) + 4; ctx.fillStyle = PAL.text; ctx.fillText('‹›', x, y); x += 18; UI.chip(ctx, x, y - 9, '暗色', E.dark.color);
+      y += 24; line('紅克綠、綠克藍、藍克紅；光與暗互相克制（雙方都 +50%）。', PAL.textDim); y += 6;
+      h2('職業克制（×1.2 / 被克 ×0.85，英雄與怪物都適用）');
+      line('近戰 › 遠程 › 魔法 › 近戰。看單位的攻擊模式圖示：近戰（橘）、遠程（綠）、魔法（藍）。', PAL.textDim);
+      line('職業專精：' + Object.entries(DH.CLASS_VS_RACE).map(([k, v]) => `${DH.CLASSES[k].cls}→${DH.RACE_NAMES[v[0]]}+${Math.round(v[1] * 100)}%`).join('　')); y += 6;
+      h2('種族克制（×1.2 / 被克 ×0.85，雙向）');
+      for (const [k, v] of Object.entries(DH.SPECIES_VS_RACE)) line(`${DH.SPECIES[k]}：克制 ${DH.RACE_NAMES[v.beats]}（打牠 +20%、被牠打 -15%）；被 ${DH.RACE_NAMES[v.weak]} 克制（打牠 -15%、被牠打 +20%）`);
+      y += 4;
+      h2('怪物種族');
+      const groups = {};
+      for (const m of Object.values(DH.MONSTERS)) (groups[m.race] = groups[m.race] || []).push(m.name);
+      for (const [r, names] of Object.entries(groups)) line(`${DH.RACE_NAMES[r]}：${names.join('、')}`, PAL.textDim);
+      UI.button(this, ctx, 190, C.H - 70, 160, 46, '關閉', { onClick: () => { this.help = false; } });
     }
   }
   DH.Campaign = Campaign;

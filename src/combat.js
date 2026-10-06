@@ -44,9 +44,29 @@
       if (k('color_adv_up') && cm > 1) cm = 1.5 + attacker.sigParam(0) * sc;
       if (k('ignore_resist') && cm < 1) cm = 1;
     }
-    if (cm > 1) { notes.push('克制'); if (attacker.has('rune')) { mult += 0.25; notes.push('符文'); } }
-    else if (cm < 1) notes.push('抗性');
-    let base = attacker.atk * mult * cm;
+    if (cm > 1) { notes.push('顏色克制'); if (attacker.has('rune')) { mult += 0.25; notes.push('符文'); } }
+    else if (cm < 1) notes.push('顏色被克');
+    // ── 職業克制：攻擊方式三角 ──
+    let km = 1;
+    const ak = attacker.pattern.kind, dk = defender.pattern.kind;
+    if (DH.KIND_BEATS[ak] === dk) { km = DH.KIND_ADV; notes.push('職業克制'); }
+    else if (DH.KIND_BEATS[dk] === ak) { km = DH.KIND_DIS; notes.push('職業被克'); }
+    // ── 職業專精 / 種族克制 ──
+    let rm = 1;
+    const hero = attacker.side === 'hero' ? attacker : (defender.side === 'hero' ? defender : null);
+    const mon = attacker.side === 'monster' ? attacker : (defender.side === 'monster' ? defender : null);
+    if (hero && mon && mon.def.race) {
+      const race = mon.def.race, sp = DH.SPECIES_VS_RACE[hero.def.species], cv = DH.CLASS_VS_RACE[hero.def.classKey];
+      if (attacker === hero) {
+        if (cv && cv[0] === race) { rm *= 1 + cv[1]; notes.push('職業專精'); }
+        if (sp && sp.beats === race) { rm *= DH.RACE_ADV; notes.push('種族克制'); }
+        else if (sp && sp.weak === race) { rm *= DH.RACE_DIS; notes.push('種族被克'); }
+      } else {
+        if (sp && sp.weak === race) { rm *= DH.RACE_ADV; notes.push('種族克制'); }
+        else if (sp && sp.beats === race) { rm *= DH.RACE_DIS; notes.push('種族被克'); }
+      }
+    }
+    let base = attacker.atk * mult * cm * km * rm;
     let crit = false;
     let critChance = attacker.has('critical') ? 0.25 : 0;
     if (attacker.sig && attacker.sigSpecies === 'halfling') critChance += 0.25 * attacker.sig.scale;
@@ -65,7 +85,7 @@
     }
     const roll = ctx.noRoll ? 1 : (0.92 + Math.random() * 0.16);
     const dmg = Math.max(1, Math.round(base * roll));
-    return { dmg, cm, notes, crit, expected: Math.max(1, Math.round(base)) };
+    return { dmg, cm: cm * km * rm, notes, crit, expected: Math.max(1, Math.round(base)) };
   };
   DH.colorMult = colorMult;
 })(window.DH);

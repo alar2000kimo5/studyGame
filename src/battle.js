@@ -670,12 +670,23 @@
       ctx.fillText(title, x, y + 8);
       let tx = x + ctx.measureText(title).width + 10;
       const chips = [[el.name, el.color], [u.pattern.label, PAL[u.pattern.kind]]];
-      if (u.side === 'monster') chips.push([`速度 ${u.speed}`, PAL.textDim], [`AI：${DH.AI_NAMES[u.ai]}`, PAL.textDim]);
+      if (u.side === 'monster') chips.push([DH.RACE_NAMES[u.def.race] || '怪物', '#c9b07a'], [`速度 ${u.speed}`, PAL.textDim], [`AI：${DH.AI_NAMES[u.ai]}`, PAL.textDim]);
+      else chips.push([DH.SPECIES[u.def.species], '#b9a9d9']);
       ctx.font = `bold 11px ${DH.FONT}`;
       for (const [t, c] of chips) { const tw = ctx.measureText(t).width + 12; S.rr(ctx, tx, y, tw, 17, 8); ctx.fillStyle = c; ctx.fill(); ctx.fillStyle = '#1a1420'; ctx.fillText(t, tx + 6, y + 8.5); tx += tw + 6; }
       ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim;
       ctx.fillText(`HP ${u.hp}/${u.maxHp}　攻擊 ${u.atk}　防禦 ${u.defense}${u.armor ? '　重甲 ' + u.armor + ' 層' : ''}　${u.pattern.kindLabel}：${u.pattern.kind === 'melee' ? '攻擊相鄰格的敵人' : u.pattern.kind === 'ranged' ? '攻擊每條線上第一個目標，友方會擋線' : '穿透整條線，打到所有敵人'}`, x, y + 30);
       const tl = u.talents.map(t => `【${DH.TALENTS[t].name}】${DH.TALENTS[t].desc}`);
+      if (u.side === 'monster' && u.def.race) {
+        const race = u.def.race;
+        const cls = Object.entries(DH.CLASS_VS_RACE).filter(([k, v]) => v[0] === race).map(([k]) => DH.CLASSES[k].cls);
+        const sp = Object.entries(DH.SPECIES_VS_RACE).filter(([k, v]) => v.beats === race).map(([k]) => DH.SPECIES[k]);
+        const wk = Object.entries(DH.SPECIES_VS_RACE).filter(([k, v]) => v.weak === race).map(([k]) => DH.SPECIES[k]);
+        tl.unshift(`【克制】職業專精：${cls.join('、') || '無'}；種族克制：${sp.join('、') || '無'}；被牠克制：${wk.join('、') || '無'}`);
+      } else if (u.side === 'hero') {
+        const cv = DH.CLASS_VS_RACE[u.def.classKey], sp = DH.SPECIES_VS_RACE[u.def.species];
+        tl.unshift(`【克制】專精：對${DH.RACE_NAMES[cv[0]]} +${Math.round(cv[1] * 100)}%；種族：克制${DH.RACE_NAMES[sp.beats]}、被${DH.RACE_NAMES[sp.weak]}克制`);
+      }
       if (u.sig) tl.unshift(`【專武 ${u.sig.name} Lv.${u.sig.level}】${DH.SIG_SPECIES[u.sig.species].name}：${DH.sigSpeciesDesc(u.sig.species, u.sig.level)}`, `【${u.sig.trait.name}】${DH.sigTraitDesc(u.id, u.sig.level)}`);
       if (!tl.length) tl.push('沒有天賦');
       ctx.font = `11px ${DH.FONT}`;

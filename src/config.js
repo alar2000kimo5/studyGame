@@ -11,7 +11,7 @@ window.DH = window.DH || {};
     HERO_ROW: 7,
   };
 
-  // 顏色屬性：藍 > 紅 > 綠 > 藍，光／暗中立
+  // 顏色屬性：紅 > 綠 > 藍 > 紅，光與暗互相克制
   DH.ELEMENTS = {
     red:   { name: '紅', color: '#e2483c', dark: '#8f2a22', light: '#ff8a7a' },
     green: { name: '綠', color: '#4cba54', dark: '#2a7a33', light: '#8fe596' },
@@ -19,7 +19,7 @@ window.DH = window.DH || {};
     light: { name: '光', color: '#f4d66e', dark: '#a98a2c', light: '#fff0b3' },
     dark:  { name: '暗', color: '#8c52c8', dark: '#55307c', light: '#c79af0' },
   };
-  DH.BEATS = { blue: 'red', red: 'green', green: 'blue' };
+  DH.BEATS = { red: 'green', green: 'blue', blue: 'red', light: 'dark', dark: 'light' };
 
   DH.PALETTE = {
     bgTop: '#1b1626', bgBottom: '#0b0912',
