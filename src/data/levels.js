@@ -1,6 +1,6 @@
 // 關卡：8 章 × 20 關 = 160 關，由種子亂數生成（固定種子，每次開啟都一樣）
 //   地形字元：. 地板  # 牆  R 岩石  I 冰  F 火  M 泥  W 河  B 橋  X 虛空（戰場外）
-//   陷阱：S 尖刺  P 毒霧  E 炸彈  T 傳送門（成對）
+//   陷阱：S 尖刺  P 毒霧  E 炸彈  T 傳送門（成對）  Q 能量水晶（回合開始站在上面 +30 能量）
 //   每章一種地形主題與怪物池，第 20 關為 Boss 關
 (function (DH) {
   const COLS = DH.CONFIG.COLS, ROWS = DH.CONFIG.ROWS;
@@ -16,9 +16,9 @@
     { id: 7, name: '長河峽谷', theme: 'river', desc: '河川把戰場切成兩半，只有橋和飛行單位能過。', pool: ['crocodile', 'river_naga', 'harpy', 'goblin_archer'], elite: ['crocodile'], boss: 'river_god', features: { river: 1, mud: 1, wall: 1, portal: 1, spike: 1 } },
     { id: 8, name: '龍王巢穴', theme: 'lair', desc: '火焰、石牆與龍族。最後等著你的是龍王。', pool: ['whelp', 'imp', 'golem', 'orc'], elite: ['lava_golem', 'yeti'], boss: 'dragon', finalBoss: 'dragon_king', features: { fire: 2, wall: 2, rock: 1, bomb: 2, spike: 1, portal: 1 } },
   ];
-  const TERRAIN_NAMES = { '.': '地板', '#': '牆', 'R': '岩石', 'I': '冰', 'F': '火', 'M': '泥', 'W': '河', 'B': '橋', 'X': '虛空', 'S': '尖刺', 'P': '毒霧', 'E': '炸彈', 'T': '傳送門' };
+  const TERRAIN_NAMES = { '.': '地板', '#': '牆', 'R': '岩石', 'I': '冰', 'F': '火', 'M': '泥', 'W': '河', 'B': '橋', 'X': '虛空', 'S': '尖刺', 'P': '毒霧', 'E': '炸彈', 'T': '傳送門', 'Q': '能量水晶' };
   DH.TERRAIN_NAMES = TERRAIN_NAMES;
-  DH.TERRAIN_DESC = { '#': '牆：擋住移動與射線', 'R': '岩石：擋住移動與射線', 'I': '冰：踩上去會往同方向滑到底', 'F': '火：回合結束站在上面受 10% 最大 HP 傷害並灼燒', 'M': '泥：怪物經過移動力 -1，英雄拖曳經過扣 0.5 秒', 'W': '河：地面單位不能進入，不擋射線', 'B': '橋：可通行的河面', 'X': '虛空：戰場之外，任何單位都不能進入，射線可以穿過', 'S': '尖刺陷阱：停在上面的單位受 15% 最大 HP 傷害', 'P': '毒霧陷阱：回合結束站在上面會中毒 3 回合', 'E': '炸彈陷阱：踩到就爆炸，自己與周圍八格的單位受 20% 最大 HP 傷害，之後消失', 'T': '傳送門：停在上面會被傳送到另一個傳送門' };
+  DH.TERRAIN_DESC = { '#': '牆：擋住移動與射線', 'R': '岩石：擋住移動與射線', 'I': '冰：踩上去會往同方向滑到底', 'F': '火：回合結束站在上面受 10% 最大 HP 傷害並灼燒', 'M': '泥：怪物經過移動力 -1，英雄拖曳經過扣 0.5 秒', 'W': '河：地面單位不能進入，不擋射線', 'B': '橋：可通行的河面', 'X': '虛空：戰場之外，任何單位都不能進入，射線可以穿過', 'S': '尖刺陷阱：停在上面的單位受 15% 最大 HP 傷害', 'P': '毒霧陷阱：回合結束站在上面會中毒 3 回合', 'E': '炸彈陷阱：踩到就爆炸，自己與周圍八格的單位受 20% 最大 HP 傷害，之後消失', 'T': '傳送門：停在上面會被傳送到另一個傳送門', 'Q': '能量水晶：回合開始時站在上面的英雄獲得 30 大絕招能量' };
   DH.TRAPS = 'SPET';
 
   // 戰場形狀：回傳要變成虛空的格子
@@ -63,6 +63,7 @@
     if (f.poison && index >= 2) put('P', cnt(f.poison), trapRows);
     if (f.bomb && index >= 3) put('E', Math.max(1, cnt(f.bomb)), trapRows);
     if (f.portal && index >= 4 && R() < 0.7) put('T', 2, [1, 2, 3, 4, 5, 6]);
+    if (ch.id >= 2 && index >= 3 && R() < 0.6) put('Q', 1, [3, 4, 5, 6]);
     if (f.river && index >= 1) {
       const r = 3 + Math.floor(R() * 2);
       for (let c = 0; c < COLS; c++) if (g[r][c] !== 'X') g[r][c] = 'W';

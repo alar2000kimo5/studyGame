@@ -25,6 +25,7 @@
       this.heroes = defs.map((d, i) => new DH.Hero(d, startCells[i] || [c0 + i, C.HERO_ROW]));
       this.moveTime = C.MOVE_TIME + (this.heroes.some(h => h.has('swift')) ? 1 : 0) + Math.max(0, ...this.heroes.map(h => h.hasSig('drag_time') ? h.sigParam(0) * h.sig.scale : 0));
       this.movedSet = new Set(); this.reward = null;
+      for (const h of this.heroes) if (h.ult) h.energy = h.sig ? DH.ENERGY.sigStart : 0;
       this.turnOrder = this.heroes.slice(); this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.monsters = [];
       this.drag = null; this.stars = 0; this.buttons = [];
@@ -80,11 +81,63 @@
     aliveHeroes() { return this.heroes.filter(h => h.alive); }
     addLog(s) { this.log.push(s); if (this.log.length > 3) this.log.shift(); }
 
+    // ── 大絕招能量 ──
+    gainEnergy(h, amt) {
+      if (!h || !h.ult || !h.alive || amt <= 0) return;
+      let mult = 1;
+      if (h.sig) mult += DH.ENERGY.sigBonus;
+      if (h.has('focus')) mult += DH.ENERGY.focusBonus;
+      if (h.def.species === 'dragonkin') mult += DH.ENERGY.dragonkinBonus;
+      const before = h.energy;
+      h.energy = Math.min(100, h.energy + amt * mult);
+      if (before < 100 && h.energy >= 100) this.fx.text(h.x, h.y - 60, '絕招就緒！', PAL.gold, { size: 14, dur: 1.1 });
+    }
+    canCast(h) { return h && h.ult && h.alive && h.energy >= 100 && this.state === 'idle' && !this.drag; }
+    async castUltimate(h) {
+      if (!this.canCast(h)) return false;
+      this.state = 'busy'; this.info = null; h.energy = 0;
+      const el = DH.ELEMENTS[h.element], u = h.ult, pw = u.power;
+      this.actor = h; h.playAnim('cast', 0.9, 0);
+      this.ultFlash = { t: 0, color: el.color };
+      this.banner = { text: u.name, t: 0, dur: 1.2, color: el.light };
+      this.fx.ring(h.x, h.y - 10, el.light);
+      await sleep(600);
+      const mons = this.aliveMonsters(), heroes = this.aliveHeroes();
+      const dmgTo = (t, pct, extraNote) => { const r = DH.calcDamage(h, t, { noRoll: true }); const dmg = Math.max(1, Math.round(r.expected * pct / 100 * (t.cursed ? 1.3 : 1) * (t.marked ? 1.5 : 1))); t.takeDamage(dmg); this.fx.text(t.x, t.y - 30, `-${dmg}`, el.light, { size: 24 }); this.fx.burst(t.x, t.y - 6, el.color, 12); if (extraNote) this.fx.text(t.x, t.y - 52, extraNote, PAL.gold, { size: 12, dur: 0.9 }); return dmg; };
+      const healAll = pct => { for (const a of heroes) { const n = a.heal(Math.round(a.maxHp * pct / 100)); if (n > 0) this.fx.text(a.x, a.y - 30, `+${n}`, PAL.heal); } };
+      const shieldAll = pct => { for (const a of heroes) { a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * pct / 100)); this.fx.ring(a.x, a.y - 4, '#8fd8ff'); } };
+      const P = v => Math.round(v * pw);
+      switch (u.key) {
+        case 'shield_charge': shieldAll(P(25)); for (const n of G.neighbors8(h.pos)) { const t = this.unitAt(n[0], n[1]); if (t && t.side === 'monster') dmgTo(t, P(200)); } break;
+        case 'whirl': for (const n of G.neighbors8(h.pos)) { const t = this.unitAt(n[0], n[1]); if (t && t.side === 'monster') dmgTo(t, P(260)); } this.fx.ring(h.x, h.y - 10, '#fff'); break;
+        case 'arrow_rain': for (const t of mons) { this.fx.projectile({ x: t.x + (Math.random() - 0.5) * 40, y: t.y - 140 }, { x: t.x, y: t.y - 6 }, el.color, 0.25); } await sleep(260); for (const t of mons) dmgTo(t, P(120)); break;
+        case 'meteor': for (const t of mons) { this.fx.beam({ x: t.x + 30, y: t.y - 160 }, { x: t.x, y: t.y - 6 }, '#ff9a3a', 0.4); } await sleep(300); for (const t of mons) { dmgTo(t, P(150)); if (t.alive) t.status.burn = { turns: 2, dmg: Math.round(h.atk * 0.15) }; } break;
+        case 'holy_heal': healAll(P(40)); for (const a of heroes) { delete a.status.poison; delete a.status.burn; this.fx.beam({ x: h.x, y: h.y - 10 }, { x: a.x, y: a.y - 6 }, PAL.heal, 0.35); } break;
+        case 'assassinate': { const t = mons.slice().sort((a, b) => a.hp - b.hp)[0]; if (t) { this.fx.slash(t.x, t.y - 8, '#fff'); this.fx.slash(t.x, t.y - 8, el.light); dmgTo(t, P(400)); if (t.alive && !t.has('big') && t.hpRatio < 0.3) { t.takeDamage(t.hp); this.fx.text(t.x, t.y - 52, '處決', '#ff4a4a', { size: 14, dur: 0.9 }); } } break; }
+        case 'quake': for (const t of mons) if (t.col === h.col || t.row === h.row) { dmgTo(t, P(220)); if (t.alive && !t.has('big')) { const dx = Math.sign(t.col - h.col), dy = Math.sign(t.row - h.row); const dest = [t.col + dx, t.row + dy]; if (this.isFree(dest[0], dest[1], t)) t.setCell(dest[0], dest[1]); else { const extra = Math.round(h.atk * 0.5); t.takeDamage(extra); this.fx.text(t.x, t.y - 46, `-${extra}`, '#fff', { size: 14 }); } } } this.fx.ring(h.x, h.y + 10, '#c8a070'); break;
+        case 'judgment': healAll(P(25)); for (const t of mons) { const r = t.def.race; this.fx.beam({ x: t.x, y: t.y - 150 }, { x: t.x, y: t.y - 6 }, '#fff6c0', 0.4); dmgTo(t, (r === 'undead' || r === 'demon') ? P(220) : P(120), (r === 'undead' || r === 'demon') ? '聖光' : null); } break;
+        case 'natures_wrath': for (const t of mons) { t.status.poison = { turns: 3, dmg: Math.round(h.atk * 0.25 * pw) }; this.fx.text(t.x, t.y - 30, '中毒', '#b96cff', { size: 16 }); this.fx.burst(t.x, t.y - 6, '#8fc04a', 8); } healAll(P(20)); break;
+        case 'curse': for (const t of mons) { dmgTo(t, P(100)); if (t.alive) { t.cursed = 2; this.fx.text(t.x, t.y - 52, '詛咒', '#c79af0', { size: 12, dur: 0.9 }); } } break;
+        case 'mark': { const t = mons.slice().sort((a, b) => b.hp - a.hp)[0]; if (t) { this.fx.projectile({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.2); await sleep(220); dmgTo(t, P(350)); if (t.alive) { t.marked = 2; this.fx.text(t.x, t.y - 52, '標記', PAL.gold, { size: 12, dur: 0.9 }); } } break; }
+        case 'war_song': for (const a of heroes) { a.buffAtk = 1; a.supportAtk = Math.max(a.supportAtk || 0, P(40) / 100 - 0.2); this.fx.text(a.x, a.y - 46, '戰歌', PAL.gold, { size: 12, dur: 0.9 }); if (a !== h) this.gainEnergy(a, P(30)); } for (let i = 0; i < 5; i++) this.fx.text(h.x + (i - 2) * 16, h.y - 30 - i * 5, '♪', el.light, { size: 18, dur: 1, vy: -60 }); break;
+        case 'royal_decree': shieldAll(P(30)); for (const a of heroes) { a.buffAtk = 1; a.supportAtk = Math.max(a.supportAtk || 0, P(30) / 100 - 0.2); } break;
+        case 'storm': for (const t of mons) { this.fx.beam({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, el.color, 0.4); } await sleep(300); for (const t of mons) { dmgTo(t, P(180)); if (!t.alive) continue; const k = Math.floor(Math.random() * 3); if (k === 0) t.status.burn = { turns: 2, dmg: Math.round(h.atk * 0.15) }; else if (k === 1) t.status.slow = { turns: 1, amt: 1 }; else if (!t.has('big')) t.status.stun = { turns: 1 }; this.fx.text(t.x, t.y - 52, ['灼燒', '減速', '暈眩'][k], PAL.gold, { size: 12, dur: 0.9 }); } break;
+        case 'roar': h.roar = 1; h.roarReflect = P(50) / 100; for (const t of mons) { t.forced = h; this.fx.text(t.x, t.y - 30, '！', '#ff6a5a', { size: 20 }); } this.fx.ring(h.x, h.y - 10, '#ff6a5a'); break;
+      }
+      this.addLog(`${h.name} 發動大絕招「${u.name}」！`);
+      await sleep(500);
+      this.actor = null;
+      this.monsters = this.monsters.filter(m => m.alive || m.alpha > 0);
+      if (await this.checkStageClear()) return true;
+      this.state = 'idle';
+      return true;
+    }
     // 每波開始：專武的開場護盾／全隊回復
     waveStart() {
       for (const h of this.aliveHeroes()) {
         if (h.hasSig('shield_start')) h.shieldHp = Math.max(h.shieldHp, Math.round(h.maxHp * h.sigPct(0)));
         if (h.hasSig('wave_heal')) for (const a of this.aliveHeroes()) a.heal(Math.round(a.maxHp * h.sigPct(0)));
+        this.gainEnergy(h, DH.ENERGY.waveStart);
       }
     }
     spawnStage(idx, first) {
@@ -120,7 +173,7 @@
       }
       // 底部英雄卡
       const card = this.heroCardAt(x, y);
-      if (card) { this.info = card; return; }
+      if (card) { if (this.canCast(card)) { this.castUltimate(card); return; } this.info = card; return; }
       this.info = null;
     }
     pointerMove(x, y) { if (this.drag) { this.drag.px = x; this.drag.py = y; this.dragStep(x, y); } }
@@ -199,6 +252,7 @@
       this.turnOrder = this.pendingOrder || this.turnOrder;
       this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.movedSet = new Set([d.hero, ...d.swaps]);
+      this.gainEnergy(d.hero, DH.ENERGY.dragged); for (const a of d.swaps) this.gainEnergy(a, DH.ENERGY.swapped);
       for (const h of this.movedSet) this.landTrap(h);
       this.resolveTurn();
     }
@@ -214,19 +268,7 @@
         if (!this.aliveMonsters().length) break;
       }
       this.monsters = this.monsters.filter(m => m.alive || m.alpha > 0);
-      if (!this.aliveMonsters().length) {
-        if (this.stageIdx + 1 < this.dungeon.stages.length) {
-          this.stageIdx++;
-          await this.showBanner(`第 ${this.stageIdx + 1} 波來襲！`);
-          this.spawnStage(this.stageIdx, false);
-          this.waveStart();
-          this.addLog(`第 ${this.stageIdx + 1} 波`);
-          await sleep(600);
-          this.turn++; this.state = 'idle';
-          return;
-        }
-        return this.victory();
-      }
+      if (await this.checkStageClear()) return;
       await this.monsterPhase();
       if (this.dead) return;
       if (!this.aliveHeroes().length) return this.defeat();
@@ -245,9 +287,12 @@
         if (h.hasSig('regen_turn')) amt += Math.round(h.maxHp * h.sigPct(0));
         h.elfReady = !!(h.sig && h.sigSpecies === 'elf' && !h.wasHit); h.wasHit = false;
         h.onFire = this.tAt(h.col, h.row) === 'F';
+        if (this.tAt(h.col, h.row) === 'Q') { this.gainEnergy(h, DH.ENERGY.crystal); this.fx.text(h.x, h.y - 46, '+能量', '#7ad8ff', { size: 12, dur: 0.9 }); }
+        if (h.roar > 0) h.roar--;
         if (amt > 0) { const n = h.heal(amt); if (n > 0) { this.fx.text(h.x, h.y - 30, `+${n}`, PAL.heal); any = true; } }
       }
       this.movedSet = new Set();
+      for (const m of this.aliveMonsters()) { if (m.cursed > 0) m.cursed--; if (m.marked > 0) m.marked--; m.forced = null; }
       if (any) await sleep(450);
     }
 
@@ -272,6 +317,21 @@
       return done;
     }
 
+    async checkStageClear() {
+      if (this.aliveMonsters().length) return false;
+      if (this.stageIdx + 1 < this.dungeon.stages.length) {
+        this.stageIdx++;
+        await this.showBanner(`第 ${this.stageIdx + 1} 波來襲！`);
+        this.spawnStage(this.stageIdx, false);
+        this.waveStart();
+        this.addLog(`第 ${this.stageIdx + 1} 波`);
+        await sleep(600);
+        this.turn++; this.state = 'idle';
+        return true;
+      }
+      this.victory();
+      return true;
+    }
     async heroAct(h) {
       const elfSig = h.sig && h.sigSpecies === 'elf';
       const res = DH.resolveTargets(h.pattern, h.pos,
@@ -327,6 +387,8 @@
           const others = this.aliveMonsters().filter(m => !targets.includes(m));
           if (others.length) { const near = others.sort((a, b) => G.chebyshev(a.pos, h.pos) - G.chebyshev(b.pos, h.pos))[0]; const dmg = Math.max(1, Math.round(h.atk * h.sigPct(0))); near.takeDamage(dmg); this.fx.beam({ x: targets[0].x, y: targets[0].y - 6 }, { x: near.x, y: near.y - 6 }, el.light, 0.3); this.fx.text(near.x, near.y - 30, `-${dmg}`, el.light, { size: 16 }); if (!near.alive) kills++; }
         }
+        this.gainEnergy(h, DH.ENERGY.attack + DH.ENERGY.extraTarget * (targets.length - 1) + DH.ENERGY.kill * kills);
+        if (kills > 0) for (const a of this.aliveHeroes()) if (a !== h) this.gainEnergy(a, DH.ENERGY.allyKill * kills);
         if (kills > 0) {
           if (h.sig && h.sigSpecies === 'orc') { h.rage = Math.min(5, h.rage + kills); this.fx.text(h.x, h.y - 46, `血怒 ${Math.min(h.rage * 8, 40)}%`, '#ff6a5a', { size: 12, dur: 0.9 }); }
           if (h.hasSig('kill_heal')) { const n = h.heal(Math.round(h.maxHp * h.sigPct(0) * kills)); if (n > 0) this.fx.text(h.x, h.y - 30, `+${n}`, PAL.heal); }
@@ -448,8 +510,10 @@
             if (dodge > 0 && Math.random() < dodge) { this.fx.text(t.x, t.y - 30, '落空', '#8fd8ff', { size: 16 }); continue; }
             const r = DH.calcDamage(m, t, { dirsHit: plan.dirsHit });
             if (t.sig && t.sigSpecies === 'dwarf' && !t.lifeSaved && r.dmg >= t.hp + t.shieldHp) { r.dmg = t.hp + t.shieldHp - 1; t.lifeSaved = true; this.fx.text(t.x, t.y - 46, '礦心', PAL.gold, { size: 14, dur: 1 }); }
+            if (t.roar > 0) r.dmg = Math.max(1, Math.round(r.dmg * 0.5));
             const hit = t.takeDamage(r.dmg);
-            t.wasHit = true;
+            t.wasHit = true; this.gainEnergy(t, DH.ENERGY.hit);
+            if (t.roar > 0 && m.alive) { const back = Math.max(1, Math.round(r.dmg * (t.roarReflect || 0.5))); m.takeDamage(back); this.fx.text(m.x, m.y - 30, `-${back}`, '#ff9a5a', { size: 16 }); }
             if (t.alive && t.hasSig('counter') && m.pattern.kind === 'melee' && m.alive) { const back = Math.max(1, Math.round(t.atk * t.sigPct(0))); m.takeDamage(back); this.fx.slash(m.x, m.y - 8, '#fff'); this.fx.text(m.x, m.y - 30, `-${back}`, '#fff', { size: 16 }); }
             if (t.alive && t.hasSig('reflect') && m.alive) { const back = Math.max(1, Math.round(r.dmg * t.sigPct(0))); m.takeDamage(back); this.fx.text(m.x, m.y - 30, `-${back}`, '#ff9a5a', { size: 16 }); }
             this.fx.text(t.x, t.y - 30, `-${r.dmg}`, r.cm > 1 ? '#ff6a5a' : '#ffd0d0', { size: r.cm > 1 ? 24 : 20 });
@@ -482,6 +546,7 @@
     // ── 更新 ──────────────────────────────────────────
     async runAuto() {
       if (this.state !== 'idle' || this.drag) return;
+      for (const h of this.aliveHeroes()) if (this.canCast(h)) { await this.castUltimate(h); if (this.state !== 'idle') return; }
       const plan = DH.planAutoTurn(this);
       if (!plan || !plan.path.length) { this.auto = false; this.addLog('自動：找不到可行的移動'); return; }
       const h = plan.hero, c0 = G.cellCenter(h.col, h.row);
@@ -524,6 +589,7 @@
       this.fx.draw(ctx);
       this.drawBottom(ctx);
       if (this.drag) this.drawTimer(ctx);
+      if (this.ultFlash) { this.ultFlash.t += 0.016; const p = this.ultFlash.t / 0.7; if (p >= 1) this.ultFlash = null; else { ctx.save(); ctx.globalAlpha = 0.45 * (1 - p); ctx.fillStyle = this.ultFlash.color; ctx.fillRect(0, 0, C.W, C.H); ctx.restore(); } }
       if (this.banner) this.drawBanner(ctx);
       if (this.state === 'won' || this.state === 'lost') { this.buttons = []; this.drawEnd(ctx); }
     }
@@ -620,6 +686,12 @@
       } else if (t === 'T') {
         for (let i = 0; i < 3; i++) { ctx.save(); ctx.translate(x + cs / 2, y + cs / 2); ctx.rotate(tm * (1.2 + i * 0.6) * (i % 2 ? -1 : 1)); ctx.beginPath(); ctx.arc(0, 0, 22 - i * 6, 0, Math.PI * 1.5); ctx.lineWidth = 3; ctx.strokeStyle = ['#c79af0', '#8c52c8', '#e8d8ff'][i]; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore(); }
         ctx.globalAlpha = 0.5 + 0.3 * Math.sin(tm * 4); S.circ(ctx, x + cs / 2, y + cs / 2, 8); ctx.fillStyle = '#e8d8ff'; ctx.fill();
+      } else if (t === 'Q') {
+        ctx.save(); ctx.translate(x + cs / 2, y + cs / 2 + 4);
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(tm * 3); S.circ(ctx, 0, 0, 24); ctx.fillStyle = '#7ad8ff'; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(12, -6); ctx.lineTo(8, 14); ctx.lineTo(-8, 14); ctx.lineTo(-12, -6); ctx.closePath(); S.fillStroke(ctx, '#9fe8ff', '#2a5a7a', 2);
+        ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(-4, -4); ctx.lineTo(-8, 14); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.closePath(); ctx.fill();
+        ctx.restore();
       } else if (t === 'W' || t === 'B') {
         S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#2f6a98'; ctx.fill();
         for (let i = 0; i < 3; i++) { const wy = y + 14 + i * 18 + Math.sin(tm * 2 + i + c) * 2; ctx.beginPath(); for (let k = 0; k <= 6; k++) { const wx = x + 6 + k * 9.5; const yy = wy + Math.sin(tm * 3 + k * 0.9 + i + r) * 2.5; if (k === 0) ctx.moveTo(wx, yy); else ctx.lineTo(wx, yy); } ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(180,225,255,0.55)'; ctx.stroke(); }
@@ -727,6 +799,11 @@
         ctx.fillText(`${h.name}·${h.cls}`, r.x + r.w / 2, r.y + 86);
         ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`Lv.${h.level}  ${'★'.repeat(h.stars)}`, r.x + r.w / 2, r.y + 36);
         DH.drawHpBar(ctx, r.x + 8, r.y + 96, r.w - 16, h.hpRatio, h.alive ? PAL.hpHero : '#444', `${h.hp}/${h.maxHp}`);
+        if (h.ult) {
+          const full = h.energy >= 100;
+          DH.UI.bar(ctx, r.x + 8, r.y + 108, r.w - 16, 9, h.energy / 100, full ? PAL.gold : '#5ab0ff', full ? '絕招' : `${Math.floor(h.energy)}`);
+          if (full && h.alive) { ctx.save(); ctx.globalAlpha = 0.5 + 0.4 * Math.sin(this.time * 6); S.rr(ctx, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 14); ctx.lineWidth = 3; ctx.strokeStyle = PAL.gold; ctx.stroke(); ctx.restore(); }
+        }
         DH.drawBadge(ctx, r.x + 13, r.y + 17, 9, String(h.order), PAL.gold, '#2a2030', 11);
         h.talents.forEach((t, k) => DH.drawBadge(ctx, r.x + r.w - 13 - k * 18, r.y + 17, 8, DH.TALENTS[t].icon, el.dark, '#fff', 9));
         if (!h.alive) { ctx.font = `bold 16px ${DH.FONT}`; ctx.fillStyle = '#ff6a5a'; ctx.fillText('陣亡', r.x + r.w / 2, r.y + 50); }
@@ -775,6 +852,7 @@
         const cv = DH.CLASS_VS_RACE[u.def.classKey], sp = DH.SPECIES_VS_RACE[u.def.species];
         tl.unshift(`【克制】專精：對${DH.RACE_NAMES[cv[0]]} +${Math.round(cv[1] * 100)}%；種族：克制${DH.RACE_NAMES[sp.beats]}、被${DH.RACE_NAMES[sp.weak]}克制`);
       }
+      if (u.ult) tl.unshift(`【大絕招 ${u.ult.name}】能量 ${Math.floor(u.energy)}/100：${u.ult.desc}`);
       if (u.sig) tl.unshift(`【專武 ${u.sig.name} Lv.${u.sig.level}】${DH.SIG_SPECIES[u.sig.species].name}：${DH.sigSpeciesDesc(u.sig.species, u.sig.level)}`, `【${u.sig.trait.name}】${DH.sigTraitDesc(u.id, u.sig.level, u.sig.variant)}`);
       if (!tl.length) tl.push('沒有天賦');
       ctx.font = `11px ${DH.FONT}`;
@@ -786,8 +864,8 @@
       const a = p < 0.15 ? p / 0.15 : p > 0.8 ? (1 - p) / 0.2 : 1;
       ctx.save(); ctx.globalAlpha = a;
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 360, C.W, 96);
-      ctx.fillStyle = PAL.gold; ctx.fillRect(0, 360, C.W, 3); ctx.fillRect(0, 453, C.W, 3);
-      ctx.font = `bold 34px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold;
+      ctx.fillStyle = b.color || PAL.gold; ctx.fillRect(0, 360, C.W, 3); ctx.fillRect(0, 453, C.W, 3);
+      ctx.font = `bold 34px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = b.color || PAL.gold;
       ctx.translate(C.W / 2 + (p < 0.15 ? (1 - p / 0.15) * 80 : 0), 408); ctx.fillText(b.text, 0, 0);
       ctx.restore();
     }

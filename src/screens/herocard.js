@@ -99,6 +99,15 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
+      // ── 大絕招 ──
+      const ult = DH.ultimateFor(d);
+      if (ult) {
+        py += 160;
+        UI.panel(ctx, 16, py, 508, 70, { radius: 14, fill: 'rgba(40,30,16,0.85)', stroke: PAL.gold });
+        ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(`大絕招：${ult.name}${d.stars >= 5 ? '（5★ 威力 ×1.25）' : ''}`, 30, py + 18);
+        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; UI.wrap(ctx, ult.desc, 30, py + 38, 480, 14, 2);
+        py -= 160 - 80;
+      }
       // ── 專武（三把，各有特性）──
       py += 160;
       const sigGear = m.sigOf(h), sp = DH.SIG_SPECIES[d.species], variants = DH.sigVariants(h.id);

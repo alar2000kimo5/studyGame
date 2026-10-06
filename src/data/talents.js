@@ -29,6 +29,7 @@
     regen:          { name: '再生',     icon: '生', desc: '每回合開始回復 5% 最大 HP' },
     swift:          { name: '迅捷',     icon: '迅', desc: '拖曳時限 +1 秒（隊伍中有一人即可）' },
     hunter:         { name: '獵殺',     icon: '獵', desc: '對野獸傷害 +50%' },
+    focus:          { name: '蓄能',     icon: '能', desc: '大絕招能量獲得量 +50%' },
     flying:         { name: '飛行',     icon: '翼', desc: '無視冰、火、泥與河川地形（不能穿牆）' },
     // 昇華天賦
     ascended_power: { name: '昇華之力', icon: '昇', desc: '攻擊力與最大 HP +15%' },

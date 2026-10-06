@@ -30,7 +30,8 @@
     let attackable = usable.filter(o => o.targets.length);
 
     // 嘲諷：若能打到嘲諷英雄，只考慮那些選項（巨型怪免疫）
-    if (!m.has('big')) {
+    if (m.forced && m.forced.alive) { const f = attackable.filter(o => o.targets.includes(m.forced)); if (f.length) attackable = f; }
+    else if (!m.has('big')) {
       const taunted = attackable.filter(o => o.targets.some(h => h.has('taunt')));
       if (taunted.length) attackable = taunted;
     }
@@ -77,7 +78,8 @@
       dest = closer.length ? pick(closer) : pick(usable);
     } else {
       let goal = heroes;
-      if (ai === 'assassin') { const mh = Math.min(...heroes.map(h => h.hp)); goal = heroes.filter(h => h.hp === mh); }
+      if (m.forced && m.forced.alive) goal = [m.forced];
+      else if (ai === 'assassin') { const mh = Math.min(...heroes.map(h => h.hp)); goal = heroes.filter(h => h.hp === mh); }
       const scored = usable.map(o => ({ o, d: Math.min(...goal.map(h => G.chebyshev(o.pos, h.pos))) }));
       const best = Math.min(...scored.map(s => s.d));
       dest = pick(byMinDist(scored.filter(s => s.d === best).map(s => s.o)));

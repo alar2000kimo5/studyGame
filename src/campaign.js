@@ -1,7 +1,7 @@
 // 戰役：8 章 × 20 關，章節切換 + 關卡格子
 (function (DH) {
   const C = DH.CONFIG, PAL = DH.PALETTE, S = DH.shapes, UI = DH.UI;
-  const TERRAIN_COLORS = { '#': '#6a6472', 'R': '#8a7a66', 'I': '#bfe3f7', 'F': '#ff7a2a', 'M': '#7a5a38', 'W': '#2f6a98', 'B': '#9a6a3a', 'X': '#0a0810', 'S': '#c8ccd8', 'P': '#9a5ad0', 'E': '#ff4a3a', 'T': '#e8d8ff' };
+  const TERRAIN_COLORS = { '#': '#6a6472', 'R': '#8a7a66', 'I': '#bfe3f7', 'F': '#ff7a2a', 'M': '#7a5a38', 'W': '#2f6a98', 'B': '#9a6a3a', 'X': '#0a0810', 'S': '#c8ccd8', 'P': '#9a5ad0', 'E': '#ff4a3a', 'T': '#e8d8ff', 'Q': '#7ad8ff' };
 
   class Campaign extends UI.Screen {
     constructor(game) {

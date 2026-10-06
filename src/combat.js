@@ -18,6 +18,7 @@
     if (attacker.has('prepare') && ctx.moved === false) { mult += 0.25; notes.push('蓄勢'); }
     if (attacker.has('hunter') && defender.has('beast')) { mult += 0.5; notes.push('獵殺'); }
     if (attacker.buffAtk > 0) { mult += 0.2 + (attacker.supportAtk || 0); notes.push('鼓舞'); }
+    if (attacker.cursed > 0) { mult -= 0.3; notes.push('詛咒'); }
     if (attacker.swapBuff > 0) { mult += attacker.swapBuff; notes.push('換位'); }
     if (attacker.iceBuff > 0) { mult += attacker.iceBuff; notes.push('滑行'); }
     let cm = colorMult(attacker.element, defender.element);
@@ -72,6 +73,8 @@
     if (attacker.sig && attacker.sigSpecies === 'halfling') critChance += 0.25 * attacker.sig.scale;
     if (!ctx.noRoll && critChance > 0 && Math.random() < critChance) { base *= 1.5; crit = true; notes.push('會心'); }
     base *= 100 / (100 + (defender.defense || 0));
+    if (defender.cursed > 0) base *= 1.3;
+    if (defender.marked > 0) { base *= 1.5; notes.push('標記'); }
     // 防守方專武
     if (defender.sig) {
       if (defender.hasSig('low_hp_def') && defender.hpRatio < 0.5) base *= 1 - defender.sigPct(0);
