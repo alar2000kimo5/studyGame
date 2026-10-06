@@ -51,10 +51,12 @@
     nextDungeon(id) { return DH.DUNGEONS.find(d => d.id === id + 1) || null; }
     frame(t) {
       const dt = Math.min(0.05, (t - this.last) / 1000); this.last = t;
-      this.scene.update(dt);
-      const ctx = this.ctx;
-      ctx.setTransform(this.dpr * this.scale, 0, 0, this.dpr * this.scale, 0, 0);
-      this.scene.draw(ctx);
+      try {
+        this.scene.update(dt);
+        const ctx = this.ctx;
+        ctx.setTransform(this.dpr * this.scale, 0, 0, this.dpr * this.scale, 0, 0);
+        this.scene.draw(ctx);
+      } catch (e) { console.error(e); }
       requestAnimationFrame(tt => this.frame(tt));
     }
   }

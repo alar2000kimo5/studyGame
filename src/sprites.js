@@ -5,7 +5,8 @@
   const OUTLINE = '#2a2030';
 
   function rr(ctx, x, y, w, h, r) {
-    r = Math.min(r, w / 2, h / 2);
+    if (!(w > 0) || !(h > 0)) { ctx.beginPath(); return; }
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
     ctx.beginPath();
     ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
@@ -246,9 +247,11 @@
     }
   }
 
+  const col = (m, k, d) => (m.def && m.def.colors && m.def.colors[k]) || d;
   const SHAPES = {
     goblin(ctx, m, t) {
-      goblinBase(ctx, '#6fb24c', t, m.uid, false);
+      goblinBase(ctx, col(m, 'skin', '#6fb24c'), t, m.uid, false);
+      if (m.def && m.def.colors && m.def.colors.accent) { ctx.beginPath(); ctx.moveTo(-10, -27); ctx.lineTo(-6, -36); ctx.lineTo(-2, -28); ctx.lineTo(2, -37); ctx.lineTo(6, -28); ctx.lineTo(10, -36); ctx.lineTo(10, -24); ctx.lineTo(-10, -24); ctx.closePath(); fillStroke(ctx, m.def.colors.accent, OUTLINE, 1.5); }
       ctx.save(); ctx.translate(18, 2); ctx.rotate(-0.4);
       ctx.beginPath(); ctx.moveTo(-2, 8); ctx.lineTo(-4, -16); ctx.quadraticCurveTo(0, -22, 4, -16); ctx.lineTo(2, 8); ctx.closePath(); fillStroke(ctx, '#8a5a30', OUTLINE, 1.5); ctx.restore();
     },
@@ -257,13 +260,13 @@
       ctx.save(); ctx.translate(-18, 0); ctx.beginPath(); ctx.arc(4, 0, 17, Math.PI - 1.1, Math.PI + 1.1); ctx.lineWidth = 3.5; ctx.strokeStyle = OUTLINE; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = '#8a5a30'; ctx.stroke(); ctx.restore();
     },
     shaman(ctx, m, t) {
-      const el = DH.ELEMENTS.blue;
+      const el = { dark: col(m, 'robe', DH.ELEMENTS.blue.dark), light: col(m, 'glow', DH.ELEMENTS.blue.light) }, gskin = col(m, 'skin', '#6fb24c');
       rr(ctx, -15, -6, 30, 28, 8); fillStroke(ctx, el.dark, OUTLINE, 2);
-      rr(ctx, -15, 12, 30, 10, 4); ctx.fillStyle = shade(el.dark, -0.3); ctx.fill();
-      for (const s of [-1, 1]) { circ(ctx, s * 15, 4, 5); fillStroke(ctx, '#6fb24c', OUTLINE, 1.5); }
+      rr(ctx, -15, 12, 30, 10, 4); ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fill();
+      for (const s of [-1, 1]) { circ(ctx, s * 15, 4, 5); fillStroke(ctx, gskin, OUTLINE, 1.5); }
       const hy = -15;
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 10, hy - 2); ctx.lineTo(s * 23, hy - 9); ctx.lineTo(s * 12, hy + 6); ctx.closePath(); fillStroke(ctx, '#6fb24c', OUTLINE, 2); }
-      circ(ctx, 0, hy, 14); fillStroke(ctx, '#6fb24c', OUTLINE, 2);
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 10, hy - 2); ctx.lineTo(s * 23, hy - 9); ctx.lineTo(s * 12, hy + 6); ctx.closePath(); fillStroke(ctx, gskin, OUTLINE, 2); }
+      circ(ctx, 0, hy, 14); fillStroke(ctx, gskin, OUTLINE, 2);
       eyes(ctx, 0, hy, 6, 3.5, '#9fd8ff', '#1b1b1b');
       ctx.beginPath(); ctx.moveTo(-5, hy + 7); ctx.quadraticCurveTo(0, hy + 10, 5, hy + 7); ctx.lineWidth = 1.5; ctx.strokeStyle = OUTLINE; ctx.stroke();
       // 羽毛頭飾
@@ -274,7 +277,7 @@
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 5); circ(ctx, 0, -29, 10); ctx.fillStyle = el.light; ctx.fill(); ctx.restore();
     },
     skeleton(ctx, m, t) {
-      const bone = '#eee9dc', boneD = '#b8b2a2';
+      const bone = col(m, 'bone', '#eee9dc'), boneD = col(m, 'boneD', '#b8b2a2');
       for (const s of [-1, 1]) { rr(ctx, s * 6 - 3, 8, 6, 14, 3); fillStroke(ctx, bone, OUTLINE, 1.5); }
       rr(ctx, -12, -6, 24, 18, 6); fillStroke(ctx, boneD, OUTLINE, 2);
       for (let i = 0; i < 3; i++) { rr(ctx, -10, -3 + i * 5, 20, 2.5, 1); ctx.fillStyle = bone; ctx.fill(); }
@@ -288,7 +291,7 @@
     },
     bat(ctx, m, t) {
       const flap = Math.sin(t * 10 + m.uid) * 0.35;
-      const body = '#6a3f9a', bodyD = '#452868';
+      const body = col(m, 'body', '#6a3f9a'), bodyD = col(m, 'bodyD', '#452868');
       for (const s of [-1, 1]) {
         ctx.save(); ctx.translate(s * 8, -6); ctx.rotate(s * flap);
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s * 30, -16); ctx.lineTo(s * 28, -4); ctx.lineTo(s * 22, -6); ctx.lineTo(s * 20, 6); ctx.lineTo(s * 12, 2); ctx.lineTo(s * 10, 12); ctx.closePath();
@@ -296,11 +299,11 @@
       }
       ell(ctx, 0, -2, 12, 14); fillStroke(ctx, body, OUTLINE, 2);
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 4, -12); ctx.lineTo(s * 9, -24); ctx.lineTo(s * 11, -10); ctx.closePath(); fillStroke(ctx, body, OUTLINE, 2); }
-      eyes(ctx, 0, -5, 5, 3, '#ff5a5a', '#2a0000');
+      eyes(ctx, 0, -5, 5, 3, col(m, 'eye', '#ff5a5a'), '#2a0000');
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 3, 3); ctx.lineTo(s * 4, 8); ctx.lineTo(s * 1, 3.5); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); }
     },
     hound(ctx, m, t) {
-      const fur = '#8c4a30', furD = '#5e2f1c';
+      const fur = col(m, 'fur', '#8c4a30'), furD = col(m, 'furD', '#5e2f1c');
       for (const [lx, ly] of [[-14, 12], [-6, 14], [6, 14], [14, 12]]) { rr(ctx, lx - 3.5, ly - 4, 7, 12, 3); fillStroke(ctx, furD, OUTLINE, 1.5); }
       ctx.beginPath(); ctx.moveTo(14, 4); ctx.quadraticCurveTo(26, -8, 22, -16); ctx.lineWidth = 4; ctx.strokeStyle = OUTLINE; ctx.lineCap = 'round'; ctx.stroke(); ctx.lineWidth = 2.5; ctx.strokeStyle = fur; ctx.stroke();
       ell(ctx, 0, 4, 20, 11); fillStroke(ctx, fur, OUTLINE, 2);
@@ -314,7 +317,7 @@
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(-6 + s * 4, hy + 9); ctx.lineTo(-6 + s * 5, hy + 13); ctx.lineTo(-6 + s * 2, hy + 9.5); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); }
     },
     spider(ctx, m, t) {
-      const body = '#3a3a2c', bodyD = '#5d9a2a';
+      const body = col(m, 'body', '#3a3a2c'), bodyD = col(m, 'accent', '#5d9a2a');
       const wig = Math.sin(t * 6 + m.uid) * 2;
       for (let i = 0; i < 4; i++) for (const s of [-1, 1]) {
         const a = -0.9 + i * 0.6, len = 22;
@@ -329,7 +332,7 @@
     },
     orc(ctx, m, t) {
       ctx.scale(1.15, 1.15);
-      const skin = '#5f8f4a', skinD = '#3f6330';
+      const skin = col(m, 'skin', '#5f8f4a'), skinD = col(m, 'skinD', '#3f6330');
       for (const s of [-1, 1]) { rr(ctx, s * 8 - 6, 8, 12, 13, 4); fillStroke(ctx, '#4a3a30', OUTLINE, 1.5); }
       rr(ctx, -18, -8, 36, 24, 9); fillStroke(ctx, skin, OUTLINE, 2);
       rr(ctx, -18, 0, 36, 10, 4); fillStroke(ctx, '#6d6a74', OUTLINE, 1.5);
@@ -345,7 +348,8 @@
     },
     golem(ctx, m, t) {
       ctx.scale(1.2, 1.2);
-      const rock = '#7d8290', rockD = '#555a66', glow = `rgba(246,214,110,${0.6 + 0.4 * Math.sin(t * 3)})`;
+      const rock = col(m, 'rock', '#7d8290'), rockD = col(m, 'rockD', '#555a66'), glow = col(m, 'glow', '#f6d66e');
+      ctx.globalAlpha = 1;
       for (const s of [-1, 1]) { rr(ctx, s * 9 - 7, 10, 14, 12, 3); fillStroke(ctx, rockD, OUTLINE, 2); }
       rr(ctx, -19, -12, 38, 26, 6); fillStroke(ctx, rock, OUTLINE, 2.5);
       for (const s of [-1, 1]) { rr(ctx, s * 24 - 7, -10, 14, 24, 5); fillStroke(ctx, rock, OUTLINE, 2); }
@@ -355,7 +359,7 @@
       for (const [px, py] of [[-12, -6], [10, 6], [-6, 8]]) { circ(ctx, px, py, 2.5); ctx.fillStyle = rockD; ctx.fill(); }
     },
     whelp(ctx, m, t) {
-      const body = '#d8463a', bodyD = '#8f2a22', belly = '#f3b36a';
+      const body = col(m, 'body', '#d8463a'), bodyD = col(m, 'dark', '#8f2a22'), belly = col(m, 'belly', '#f3b36a');
       const flap = Math.sin(t * 5 + m.uid) * 0.25;
       for (const s of [-1, 1]) {
         ctx.save(); ctx.translate(s * 8, -6); ctx.rotate(s * flap);
@@ -374,7 +378,7 @@
     },
     dragon(ctx, m, t) {
       ctx.scale(1.6, 1.6);
-      const body = '#c93a2e', bodyD = '#7d1f18', belly = '#f0b060';
+      const body = col(m, 'body', '#c93a2e'), bodyD = col(m, 'dark', '#7d1f18'), belly = col(m, 'belly', '#f0b060');
       const flap = Math.sin(t * 3 + m.uid) * 0.18;
       for (const s of [-1, 1]) {
         ctx.save(); ctx.translate(s * 10, -8); ctx.rotate(s * flap);
@@ -403,8 +407,9 @@
     const bob = Math.sin(t * 2 + m.uid * 0.7) * 1.2;
     ctx.save();
     ctx.translate(x, y + 2 - (m.dropY || 0));
-    shadow(ctx, 0, 22, m.boss ? 64 : 42);
-    ctx.scale(m.scale || 1, m.scale || 1);
+    shadow(ctx, 0, 22, (m.boss ? 60 : 42) * ((m.def && m.def.size) || 1));
+    const sz = (m.def && m.def.size) || 1;
+    ctx.scale((m.scale || 1) * sz, (m.scale || 1) * sz);
     ctx.translate(0, bob);
     (SHAPES[m.shape] || SHAPES.goblin)(ctx, m, t);
     ctx.restore();

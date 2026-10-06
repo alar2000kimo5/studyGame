@@ -27,6 +27,10 @@
     }
     get pos() { return [this.col, this.row]; }
     has(t) { return this.talents.includes(t); }
+    hasSig() { return false; }
+    sigParam() { return 0; }
+    sigPct() { return 0; }
+    get flying() { return this.has('flying'); }
     setCell(c, r) { this.col = c; this.row = r; }
     snap() { const c = G.cellCenter(this.col, this.row); this.x = c.x; this.y = c.y; }
     takeDamage(n) {
@@ -69,12 +73,12 @@
     sigParam(i) { return this.sig && this.sig.trait ? this.sig.trait.params[i] : 0; }
     sigPct(i) { return this.sig ? this.sigParam(i) * this.sig.scale / 100 : 0; }
     get sigSpecies() { return this.sig ? this.sig.species : null; }
-    get flying() { return this.has('flying'); }
   }
   class Monster extends Unit {
-    constructor(id, pos) {
+    constructor(id, pos, scale) {
       super(DH.MONSTERS[id], pos, 'monster');
       this.speed = this.def.speed; this.ai = this.def.ai; this.shape = this.def.shape; this.boss = !!this.def.boss;
+      if (scale) { this.maxHp = Math.round(this.maxHp * scale.hp * (this.boss ? 1.25 : 1)); this.hp = this.maxHp; this.atk = Math.round(this.atk * scale.atk); this.defense = Math.round((scale.hp - 1) * 4); }
     }
   }
   DH.Unit = Unit; DH.Hero = Hero; DH.Monster = Monster;

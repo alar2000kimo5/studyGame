@@ -227,12 +227,12 @@
     }
     // ── 戰利品 ───────────────────────────────────────
     rewardFor(dungeon, stars) {
-      const id = dungeon.id, first = !this.d.firstClear[id];
-      const r = { gold: 120 * id + 80, gems: 15 * id + (first ? 120 : 0), xp: {}, gear: null, tokens: 0, first };
+      const id = dungeon.id, first = !this.d.firstClear[id], ch = dungeon.chapter || 1;
+      const r = { gold: 100 + 40 * id + (dungeon.boss ? 500 : 0), gems: 12 + 3 * id + (first ? 150 : 0) + (dungeon.boss ? 100 : 0), xp: {}, gear: null, tokens: 0, first };
       const cols = COLORS.slice(); const c1 = cols[Math.floor(Math.random() * 5)], c2 = cols[Math.floor(Math.random() * 5)];
-      r.xp[c1] = (r.xp[c1] || 0) + 60 * id; r.xp[c2] = (r.xp[c2] || 0) + 40 * id; r.xp.rainbow = 25 * id;
-      if (Math.random() < 0.6 + 0.1 * stars || first) r.gear = DH.makeGear(null, DH.rollRarity(id));
-      if (Math.random() < 0.3 + 0.1 * stars || first) r.tokens = 1;
+      r.xp[c1] = (r.xp[c1] || 0) + 40 + 14 * id; r.xp[c2] = (r.xp[c2] || 0) + 20 + 10 * id; r.xp.rainbow = 15 + 5 * id;
+      if (Math.random() < 0.5 + 0.1 * stars || first || dungeon.boss) r.gear = DH.makeGear(null, DH.rollRarity(ch));
+      if (Math.random() < 0.25 + 0.1 * stars || first || dungeon.boss) r.tokens = dungeon.boss ? 2 : 1;
       return r;
     }
     applyReward(dungeon, stars, r) {

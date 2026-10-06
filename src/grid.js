@@ -40,6 +40,26 @@
     }
     return out;
   }
+  // 含成本的可達計算：canEnter(c,r) 布林、cost(c,r) 進入成本（整數）
+  function reachableCost(start, steps, canEnter, cost) {
+    const out = new Map();
+    out.set(key(...start), { pos: start, dist: 0, prev: null });
+    const buckets = []; buckets[0] = [start];
+    for (let d = 0; d <= steps; d++) {
+      const layer = buckets[d] || [];
+      for (const p of layer) {
+        const cur = out.get(key(...p)); if (!cur || cur.dist !== d) continue;
+        for (const n of neighbors8(p)) {
+          if (!canEnter(n[0], n[1])) continue;
+          const nd = d + (cost(n[0], n[1]) || 1);
+          if (nd > steps) continue;
+          const k = key(...n), ex = out.get(k);
+          if (!ex || ex.dist > nd) { out.set(k, { pos: n, dist: nd, prev: p }); (buckets[nd] = buckets[nd] || []).push(n); }
+        }
+      }
+    }
+    return out;
+  }
   function pathTo(reach, target) {
     const path = [];
     let node = reach.get(key(...target));
@@ -47,5 +67,5 @@
     return path;
   }
 
-  DH.Grid = { CARDINAL, DIAGONAL, ALL, key, inBounds, cellCenter, cellRect, pixelToCell, chebyshev, neighbors8, reachable, pathTo };
+  DH.Grid = { CARDINAL, DIAGONAL, ALL, key, inBounds, cellCenter, cellRect, pixelToCell, chebyshev, neighbors8, reachable, reachableCost, pathTo };
 })(window.DH);

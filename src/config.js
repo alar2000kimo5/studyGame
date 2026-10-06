@@ -39,5 +39,9 @@ window.DH = window.DH || {};
     den:    { a: '#78665c', b: '#6b5b52', edge: '#453730', hi: '#978478', bg1: '#241a16', bg2: '#0e0907', deco: '#b57850' },
     cave:   { a: '#5d6878', b: '#535d6c', edge: '#333b47', hi: '#7b8798', bg1: '#121a26', bg2: '#060a10', deco: '#4fa0d8' },
     lair:   { a: '#6f5250', b: '#634846', edge: '#3f2a28', hi: '#92706c', bg1: '#2a1212', bg2: '#100505', deco: '#e2602c' },
+    swamp:  { a: '#5f6a4a', b: '#546040', edge: '#36402a', hi: '#7c8a62', bg1: '#141c10', bg2: '#070a05', deco: '#8fc04a' },
+    tundra: { a: '#8a94a8', b: '#7e889c', edge: '#565e70', hi: '#aab4c8', bg1: '#141a2a', bg2: '#070a12', deco: '#cfe6ff' },
+    volcano:{ a: '#5a4038', b: '#4e3630', edge: '#2e1f1a', hi: '#7a5a50', bg1: '#241008', bg2: '#0c0402', deco: '#ff7a2a' },
+    river:  { a: '#6a7868', b: '#5e6c5c', edge: '#3c483a', hi: '#8a9888', bg1: '#101c1c', bg2: '#06100f', deco: '#5ac8d8' },
   };
 })(window.DH);

@@ -1,6 +1,7 @@
 // 戰鬥場景：拖曳換位 → 英雄依序行動 → 怪物行動 → 下一回合
 (function (DH) {
   const C = DH.CONFIG, G = DH.Grid, PAL = DH.PALETTE, S = DH.shapes;
+  const UI_wrap = (ctx, text, x, y, w, lh) => DH.UI.wrap(ctx, text, x, y, w, lh);
   DH.timeScale = 1;
   const sleep = ms => new Promise(r => setTimeout(r, ms * DH.timeScale));
   DH.sleep = sleep;
@@ -11,7 +12,10 @@
       this.game = game; this.dungeon = dungeon; this.theme = DH.THEMES[dungeon.theme];
       this.time = 0; this.turn = 1; this.stageIdx = 0; this.state = 'idle'; this.dead = false;
       this.fx = new DH.FX(); this.log = []; this.info = null; this.banner = null;
-      this.obstacles = new Set(dungeon.obstacles.map(p => G.key(p[0], p[1])));
+      this.terrain = dungeon.terrain || Array.from({ length: C.ROWS }, () => '.'.repeat(C.COLS));
+      this.obstacles = new Set();
+      for (let r = 0; r < C.ROWS; r++) for (let c = 0; c < C.COLS; c++) if ('#R'.includes(this.terrain[r][c])) this.obstacles.add(G.key(c, r));
+      this.scaleM = dungeon.scale || null;
       const defs = (heroDefs && heroDefs.length) ? heroDefs : dungeon.heroes;
       const n = defs.length, c0 = Math.floor((C.COLS - n) / 2);
       this.heroes = defs.map((d, i) => new DH.Hero(d, [c0 + i, C.HERO_ROW]));
@@ -29,7 +33,22 @@
     allUnits() { return this.heroes.concat(this.monsters); }
     unitAt(c, r) { return this.allUnits().find(u => u.alive && u.col === c && u.row === r) || null; }
     isObstacle(c, r) { return this.obstacles.has(G.key(c, r)); }
-    isFree(c, r) { return G.inBounds(c, r) && !this.isObstacle(c, r) && !this.unitAt(c, r); }
+    tAt(c, r) { return G.inBounds(c, r) ? this.terrain[r][c] : '#'; }
+    ignoresTerrain(u) { return u.flying || u.hasSig('terrain_immune'); }
+    canEnter(u, c, r) { if (!G.inBounds(c, r)) return false; const t = this.tAt(c, r); if (t === '#' || t === 'R') return false; if (t === 'W' && !u.flying) return false; return true; }
+    moveCost(u, c, r) { return this.tAt(c, r) === 'M' && !this.ignoresTerrain(u) ? 2 : 1; }
+    isFree(c, r, u) { return G.inBounds(c, r) && (u ? this.canEnter(u, c, r) : !'#RW'.includes(this.tAt(c, r))) && !this.unitAt(c, r); }
+    // 冰：從 from 往 dir 方向進入 cell 後持續滑行，回傳停下的格子
+    slideOnIce(u, cell, dir) {
+      if (this.ignoresTerrain(u)) return cell;
+      let cur = cell, n = 0;
+      while (this.tAt(cur[0], cur[1]) === 'I' && n++ < 12) {
+        const next = [cur[0] + dir[0], cur[1] + dir[1]];
+        if (!this.canEnter(u, next[0], next[1]) || this.unitAt(next[0], next[1])) break;
+        cur = next;
+      }
+      return cur;
+    }
     aliveMonsters() { return this.monsters.filter(m => m.alive); }
     aliveHeroes() { return this.heroes.filter(h => h.alive); }
     addLog(s) { this.log.push(s); if (this.log.length > 3) this.log.shift(); }
@@ -44,15 +63,16 @@
     spawnStage(idx, first) {
       for (const sp of this.dungeon.stages[idx]) {
         let pos = sp.pos;
-        if (!this.isFree(pos[0], pos[1])) {
+        const probe = new DH.Monster(sp.id, pos, this.scaleM);
+        if (!this.isFree(pos[0], pos[1], probe) || (!probe.flying && 'FI'.includes(this.tAt(pos[0], pos[1])))) {
           let found = null;
           for (let r = 0; r < C.ROWS && !found; r++) for (let dc = 0; dc < C.COLS && !found; dc++) {
             const c = (pos[0] + (dc % 2 ? -1 : 1) * Math.ceil(dc / 2) + C.COLS) % C.COLS;
-            if (this.isFree(c, r)) found = [c, r];
+            if (this.isFree(c, r, probe) && (probe.flying || !'FI'.includes(this.tAt(c, r)))) found = [c, r];
           }
           pos = found || pos;
         }
-        const m = new DH.Monster(sp.id, pos);
+        const m = new DH.Monster(sp.id, pos, this.scaleM);
         m.dropY = first ? 0 : 260 + Math.random() * 120;
         this.monsters.push(m);
       }
@@ -67,7 +87,8 @@
       if (cell) {
         const u = this.unitAt(cell[0], cell[1]);
         if (u && u.side === 'hero') { this.startDrag(u, x, y); return; }
-        this.info = u || null; return;
+        const t = this.tAt(cell[0], cell[1]);
+        this.info = u || (t !== '.' ? { terrain: t } : null); return;
       }
       // 底部英雄卡
       const card = this.heroCardAt(x, y);
@@ -86,15 +107,20 @@
       const d = this.drag, hero = d.hero;
       const cell = G.pixelToCell(Math.max(C.BOARD_X, Math.min(C.BOARD_X + C.COLS * C.CELL - 1, x)), Math.max(C.BOARD_Y, Math.min(C.BOARD_Y + C.ROWS * C.CELL - 1, y)));
       if (!cell) return;
+      // 滑過冰面後，指標還停在那片冰上時不再反覆進入
+      if (d.lock && d.lock[0] === cell[0] && d.lock[1] === cell[1]) return;
+      d.lock = null;
       let guard = 0;
       while ((cell[0] !== d.last[0] || cell[1] !== d.last[1]) && guard++ < 16) {
         const step = [d.last[0] + Math.sign(cell[0] - d.last[0]), d.last[1] + Math.sign(cell[1] - d.last[1])];
-        if (!this.tryStep(step)) break;
+        const res = this.tryStep(step);
+        if (!res) break;
+        if (res === 'slid') { d.lock = cell; break; }
       }
     }
     tryStep(to) {
       const d = this.drag, hero = d.hero, from = d.last;
-      if (!G.inBounds(to[0], to[1]) || this.isObstacle(to[0], to[1])) return false;
+      if (!this.canEnter(hero, to[0], to[1])) return false;
       const u = this.unitAt(to[0], to[1]);
       if (u && u !== hero) {
         if (u.side === 'hero') {
@@ -108,10 +134,10 @@
           else if (hero.has('push')) {
             const dx = to[0] - from[0], dy = to[1] - from[1];
             const dest = [to[0] + dx, to[1] + dy];
-            if (!this.isFree(dest[0], dest[1])) return false;
+            if (!this.isFree(dest[0], dest[1], u)) return false;
             if (hero.hasSig('push_far')) {
               const dest2 = [dest[0] + dx, dest[1] + dy];
-              if (this.isFree(dest2[0], dest2[1])) u.setCell(dest2[0], dest2[1]);
+              if (this.isFree(dest2[0], dest2[1], u)) u.setCell(dest2[0], dest2[1]);
               else { u.setCell(dest[0], dest[1]); const dmg = Math.max(1, Math.round(hero.atk * hero.sigPct(0))); u.takeDamage(dmg); this.fx.text(u.x, u.y - 30, `-${dmg}`, '#fff'); }
             } else u.setCell(dest[0], dest[1]);
             this.fx.ring(u.x, u.y, PAL.preview);
@@ -120,7 +146,13 @@
         d.changed = true;
       }
       hero.setCell(to[0], to[1]); d.last = to;
-      if (to[0] !== d.start[0] || to[1] !== d.start[1]) d.changed = true;
+      const t = this.tAt(to[0], to[1]);
+      if (t === 'M' && !this.ignoresTerrain(hero)) { d.timer -= 0.5; this.fx.text(hero.x, hero.y - 40, '-0.5s', '#c8a070', { size: 12, dur: 0.7 }); }
+      if (t === 'I' && !this.ignoresTerrain(hero)) {
+        const end = this.slideOnIce(hero, to, [to[0] - from[0], to[1] - from[1]]);
+        if (end !== to) { hero.setCell(end[0], end[1]); d.last = end; this.fx.text(hero.x, hero.y - 40, '滑行', '#bfe8ff', { size: 12, dur: 0.7 }); if (hero.hasSig('ice_skater')) hero.iceBuff = hero.sigPct(0); d.changed = true; this.refreshOrderPreview(); return 'slid'; }
+      }
+      if (d.last[0] !== d.start[0] || d.last[1] !== d.start[1]) d.changed = true;
       this.refreshOrderPreview();
       return true;
     }
@@ -182,6 +214,7 @@
         if (h.has('regen')) amt += Math.round(h.maxHp * 0.05);
         if (h.hasSig('regen_turn')) amt += Math.round(h.maxHp * h.sigPct(0));
         h.elfReady = !!(h.sig && h.sigSpecies === 'elf' && !h.wasHit); h.wasHit = false;
+        h.onFire = this.tAt(h.col, h.row) === 'F';
         if (amt > 0) { const n = h.heal(amt); if (n > 0) { this.fx.text(h.x, h.y - 30, `+${n}`, PAL.heal); any = true; } }
       }
       this.movedSet = new Set();
@@ -306,8 +339,20 @@
       if (any) await sleep(500);
     }
 
+    async fireTick(units) {
+      let any = false;
+      for (const u of units) {
+        if (!u.alive || this.tAt(u.col, u.row) !== 'F' || this.ignoresTerrain(u) || u.hasSig('fire_walker')) continue;
+        const dmg = Math.max(1, Math.round(u.maxHp * 0.10)); u.takeDamage(dmg); u.status.burn = { turns: 1, dmg: Math.round(u.maxHp * 0.05) };
+        this.fx.text(u.x, u.y - 30, `-${dmg}`, '#ff9a3a', { size: 18 }); this.fx.burst(u.x, u.y - 6, '#ff7a3a', 8); any = true;
+      }
+      if (any) await sleep(450);
+    }
     async monsterPhase() {
+      await this.fireTick(this.heroes);
+      if (!this.aliveHeroes().length) return;
       await this.tickStatus(this.monsters);
+      await this.fireTick(this.monsters);
       this.monsters = this.monsters.filter(m => m.alive || m.alpha > 0);
       if (!this.aliveMonsters().length) return;
       const order = this.aliveMonsters().slice();
@@ -323,7 +368,11 @@
         m.speed = baseSpeed;
         if (!plan) continue;
         for (const step of plan.path) { m.setCell(step[0], step[1]); await sleep(120); }
-        if (plan.path.length) await sleep(100);
+        if (plan.path.length) {
+          const last = plan.path[plan.path.length - 1], prev = plan.path.length > 1 ? plan.path[plan.path.length - 2] : null;
+          if (prev && this.tAt(last[0], last[1]) === 'I') { const end = this.slideOnIce(m, last, [last[0] - prev[0], last[1] - prev[1]]); if (end !== last) { m.setCell(end[0], end[1]); this.fx.text(m.x, m.y - 40, '滑行', '#bfe8ff', { size: 12, dur: 0.7 }); plan.targets.length = 0; } }
+          await sleep(100);
+        }
         const targets = plan.targets.filter(h => h.alive);
         if (targets.length) {
           const el = DH.ELEMENTS[m.element];
@@ -449,10 +498,48 @@
         ctx.beginPath(); ctx.moveTo(x + 7, y + C.CELL - 3.5); ctx.lineTo(x + C.CELL - 7, y + C.CELL - 3.5); ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.stroke();
         const seed = (c * 7 + r * 13) % 5;
         ctx.fillStyle = 'rgba(0,0,0,0.08)'; S.circ(ctx, x + 14 + seed * 8, y + 20 + seed * 6, 2 + seed % 2); ctx.fill();
-        if (this.isObstacle(c, r)) this.drawObstacle(ctx, x, y);
+        const t = this.terrain[r][c];
+        if (t === 'R') this.drawObstacle(ctx, x, y);
+        else if (t !== '.') this.drawTerrain(ctx, t, x, y, c, r);
       }
       // 拖曳高光與攻擊預覽
       if (this.drag) this.drawPreview(ctx);
+      ctx.restore();
+    }
+    drawTerrain(ctx, t, x, y, c, r) {
+      const cs = C.CELL, tm = this.time, seed = (c * 31 + r * 17) % 7;
+      ctx.save();
+      if (t === '#') {
+        S.rr(ctx, x + 2, y + 2, cs - 4, cs - 4, 5); ctx.fillStyle = '#4e4a56'; ctx.fill();
+        for (let i = 0; i < 4; i++) { const yy = y + 5 + i * 15, off = i % 2 ? 16 : 0; for (let k = -1; k < 3; k++) { const xx = x + 4 + off + k * 32; S.rr(ctx, Math.max(x + 3, xx), yy, Math.min(29, x + cs - 3 - Math.max(x + 3, xx)), 12, 2); ctx.fillStyle = (i + k) % 2 ? '#6a6472' : '#5c5866'; ctx.fill(); } }
+        S.rr(ctx, x + 2, y + 2, cs - 4, cs - 4, 5); ctx.lineWidth = 2.5; ctx.strokeStyle = '#2a2630'; ctx.stroke();
+        S.rr(ctx, x + 4, y + 4, cs - 8, 6, 2); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fill();
+      } else if (t === 'I') {
+        S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#bfe3f7'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x + 10 + seed * 3, y + 12); ctx.lineTo(x + 30 + seed * 2, y + 30); ctx.lineTo(x + 24, y + 52); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + 40, y + 10); ctx.lineTo(x + 52 - seed, y + 36); ctx.strokeStyle = 'rgba(120,170,210,0.7)'; ctx.stroke();
+        ctx.globalAlpha = 0.35 + 0.15 * Math.sin(tm * 2 + seed); S.rr(ctx, x + 6, y + 6, 22, 10, 5); ctx.fillStyle = '#fff'; ctx.fill();
+      } else if (t === 'F') {
+        S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#4a1a10'; ctx.fill();
+        for (let i = 0; i < 4; i++) {
+          const fx = x + 12 + i * 15 + Math.sin(tm * 6 + i + seed) * 3, fh = 22 + Math.sin(tm * 9 + i * 1.7 + seed) * 8;
+          ctx.beginPath(); ctx.moveTo(fx - 8, y + cs - 8); ctx.quadraticCurveTo(fx - 9, y + cs - 8 - fh * 0.6, fx, y + cs - 8 - fh); ctx.quadraticCurveTo(fx + 9, y + cs - 8 - fh * 0.6, fx + 8, y + cs - 8); ctx.closePath();
+          ctx.fillStyle = i % 2 ? '#ff7a2a' : '#ffb03a'; ctx.globalAlpha = 0.85; ctx.fill();
+          ctx.beginPath(); ctx.moveTo(fx - 4, y + cs - 8); ctx.quadraticCurveTo(fx - 4, y + cs - 8 - fh * 0.4, fx, y + cs - 8 - fh * 0.55); ctx.quadraticCurveTo(fx + 4, y + cs - 8 - fh * 0.4, fx + 4, y + cs - 8); ctx.closePath(); ctx.fillStyle = '#fff0a0'; ctx.fill();
+        }
+        ctx.globalAlpha = 0.25 + 0.1 * Math.sin(tm * 5); S.rr(ctx, x - 4, y - 4, cs + 8, cs + 8, 10); ctx.fillStyle = '#ff6a2a'; ctx.fill();
+      } else if (t === 'M') {
+        S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#5a4630'; ctx.fill();
+        for (let i = 0; i < 3; i++) { S.ell(ctx, x + 16 + i * 18 + (seed % 3) * 2, y + 20 + ((i + seed) % 3) * 14, 9, 5); ctx.fillStyle = '#4a3824'; ctx.fill(); }
+        S.ell(ctx, x + 30, y + 40, 12, 4); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+      } else if (t === 'W' || t === 'B') {
+        S.rr(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 7); ctx.fillStyle = '#2f6a98'; ctx.fill();
+        for (let i = 0; i < 3; i++) { const wy = y + 14 + i * 18 + Math.sin(tm * 2 + i + c) * 2; ctx.beginPath(); for (let k = 0; k <= 6; k++) { const wx = x + 6 + k * 9.5; const yy = wy + Math.sin(tm * 3 + k * 0.9 + i + r) * 2.5; if (k === 0) ctx.moveTo(wx, yy); else ctx.lineTo(wx, yy); } ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(180,225,255,0.55)'; ctx.stroke(); }
+        if (t === 'B') {
+          for (let i = 0; i < 5; i++) { S.rr(ctx, x + 4, y + 5 + i * 12.5, cs - 8, 10, 2); ctx.fillStyle = i % 2 ? '#9a6a3a' : '#8a5e32'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = '#4a2e14'; ctx.stroke(); }
+          S.rr(ctx, x + 2, y + 3, 5, cs - 6, 2); ctx.fillStyle = '#6a4424'; ctx.fill(); S.rr(ctx, x + cs - 7, y + 3, 5, cs - 6, 2); ctx.fill();
+        }
+      }
       ctx.restore();
     }
     drawObstacle(ctx, x, y) {
@@ -570,6 +657,13 @@
       ctx.restore();
     }
     drawInfo(ctx, u, x, y, w) {
+      if (u.terrain) {
+        ctx.font = `bold 15px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(`地形：${DH.TERRAIN_NAMES[u.terrain]}`, x, y + 8);
+        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; UI_wrap(ctx, DH.TERRAIN_DESC[u.terrain] || '', x, y + 32, w, 17);
+        ctx.fillStyle = PAL.text; ctx.fillText('飛行單位（天使、蝙蝠、龍等）無視冰、火、泥與河，但不能穿牆。', x, y + 66);
+        ctx.fillStyle = PAL.textDim; ctx.font = `11px ${DH.FONT}`; ctx.textAlign = 'right'; ctx.fillText('點擊空白處關閉', x + w, y + 84); ctx.textAlign = 'left';
+        return;
+      }
       const el = DH.ELEMENTS[u.element];
       ctx.font = `bold 15px ${DH.FONT}`; ctx.fillStyle = PAL.text;
       const title = u.side === 'hero' ? `${u.name}・${u.cls}` : u.name;
