@@ -100,6 +100,24 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
+      // ── 緣份 ──
+      const myBonds = DH.BONDS.filter(b => b.heroes.includes(d.id) || (b.type === 'death' && b.to === d.id));
+      if (myBonds.length) {
+        const active = new Set(m.activeBonds().map(b => b.id));
+        const bh = 34 + myBonds.length * 30;
+        py += 160;
+        UI.panel(ctx, 16, py, 508, bh, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
+        ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(`緣份（${myBonds.length}）`, 30, py + 18);
+        myBonds.forEach((b, i) => {
+          const yy = py + 40 + i * 30, on = active.has(b.id);
+          const names = b.heroes.filter(id => id !== '*' && id !== d.id).map(id => DH.HEROES[id].name).join('、') || '任一隊友';
+          const tag = b.type === 'forbid' ? '禁忌' : b.type === 'combo' ? '合體' : b.type === 'death' ? '遺志' : b.type === 'sig' ? '專武' : b.negative ? '負緣' : '組隊';
+          UI.chip(ctx, 30, yy - 9, tag, b.negative || b.type === 'forbid' ? '#8a3a3a' : b.type === 'combo' ? PAL.gold : PAL.panelLight, b.type === 'combo' ? '#2a2030' : PAL.text);
+          ctx.font = `bold 11px ${DH.FONT}`; ctx.fillStyle = on ? PAL.gold : PAL.text; ctx.fillText(`${b.name}（${names}）${on ? ' ✓生效中' : ''}`, 78, yy);
+          ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(b.desc.length > 44 ? b.desc.slice(0, 43) + '…' : b.desc, 78, yy + 14);
+        });
+        py -= 160 - bh - 10;
+      }
       // ── 傳說機制 ──
       if (d.special) {
         py += 160;

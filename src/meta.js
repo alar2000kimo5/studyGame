@@ -90,6 +90,8 @@
         if (t && t.key === 'def_to_atk') atk *= 1 + (def / 10) * (t.params[0] * sc) / 100;
       }
       if (leaderBonus) { atk *= 1 + (leaderBonus.atk || 0); def += Math.round((leaderBonus.def || 0) * 100); }
+      const bs = this.bondStats(h, this._teamOverride);
+      atk *= 1 + bs.atk / 100; hp *= 1 + bs.hp / 100; def += bs.def;
       // 隊友專武的全隊加成
       if (this.d.team.includes(h.uid)) for (const o of this.teamHeroes()) {
         const og = this.sigOf(o); if (!og) continue; const ot = DH.sigTraitFor(o.id, og.variant); if (!ot) continue;
@@ -167,7 +169,37 @@
     }
     // ── 隊伍 ─────────────────────────────────────────
     setTeam(uids) { this.d.team = uids.slice(0, 5).filter(u => this.hero(u)); this.save(); }
+    withTeam(uids, fn) { this._teamOverride = uids; try { return fn(); } finally { this._teamOverride = null; } }
     teamHeroes() { return this.d.team.map(u => this.hero(u)).filter(Boolean); }
+    // ── 緣份 ──
+    // 回傳目前隊伍（或指定 uid 列表）觸發的緣份：team / sig 立即生效，death / combo 為待觸發
+    activeBonds(uids) {
+      const team = (uids || this.d.team).map(u => this.hero(u)).filter(Boolean);
+      const ids = team.map(h => h.id), out = [];
+      for (const b of DH.BONDS) {
+        const present = b.heroes.filter(id => id === '*' || ids.includes(id));
+        if (b.type === 'team') { if (present.length >= (b.need || b.heroes.length)) out.push(b); }
+        else if (b.type === 'sig') { const partner = team.find(h => h.id === b.partner); if (partner && this.sigOf(partner) && b.heroes.every(id => ids.includes(id))) out.push(b); }
+        else if (b.type === 'death') { const to = team.find(h => h.id === b.to); if (to && (b.on === '*' || ids.includes(b.on))) out.push(b); }
+        else if (b.type === 'combo') { if (present.length >= (b.need || b.heroes.length)) out.push(b); }
+        else if (b.type === 'forbid') { if (b.heroes.every(id => ids.includes(id))) out.push(b); }
+      }
+      return out;
+    }
+    forbiddenWith(uids, heroId) { const ids = uids.map(u => this.hero(u)).filter(Boolean).map(h => h.id); return DH.BONDS.find(b => b.type === 'forbid' && b.heroes.includes(heroId) && b.heroes.some(id => id !== heroId && ids.includes(id))) || null; }
+    // 某英雄從緣份獲得的加成合計
+    bondStats(h, uids) {
+      const acc = { atk: 0, hp: 0, def: 0, energy: 0, crit: 0, heal: 0, dodge: 0, vsBeast: 0, poisonAmp: 0, supportAtk: 0, iceImmune: false };
+      const team = (uids || this.d.team); if (!team.includes(h.uid)) return acc;
+      for (const b of this.activeBonds(team)) {
+        if (!b.stats) continue;
+        const inBond = b.heroes.includes(h.id);
+        for (const [who, st] of Object.entries(b.stats)) {
+          if (who === 'team' || (who === 'all' && inBond) || who === h.id) for (const [k, v] of Object.entries(st)) { if (k === 'iceImmune') acc.iceImmune = acc.iceImmune || v; else acc[k] += v; }
+        }
+      }
+      return acc;
+    }
     leaderBonusFor(h) {
       const leader = this.teamHeroes()[0]; if (!leader) return null;
       const ld = this.def(leader);
@@ -185,7 +217,8 @@
         if (t && t.key === 'pattern_all') pattern = DH.PATTERNS[d.pattern].kind + '_all';
         if (t && t.key === 'range_pierce' && DH.PATTERNS[d.pattern].kind === 'ranged') pattern = d.pattern.replace('ranged', 'magic');
       }
-      return Object.assign({}, d, { pattern, hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, sig });
+      const bond = this.bondStats(h), bonds = this.activeBonds();
+      return Object.assign({}, d, { pattern, hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, sig, bond, deathBonds: bonds.filter(b => b.type === 'death' && b.to === h.id), combos: bonds.filter(b => b.type === 'combo' && b.heroes.includes(h.id)) });
     }
     // ── 召喚 ─────────────────────────────────────────
     summonCost() { return SUMMON_COST; }

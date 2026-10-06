@@ -68,7 +68,7 @@
     isFree(c, r, u) { return G.inBounds(c, r) && (u ? this.canEnter(u, c, r) : !'#RWX'.includes(this.tAt(c, r))) && !this.unitAt(c, r); }
     // 冰：從 from 往 dir 方向進入 cell 後持續滑行，回傳停下的格子
     slideOnIce(u, cell, dir) {
-      if (this.ignoresTerrain(u)) return cell;
+      if (this.ignoresTerrain(u) || (u.bond && u.bond.iceImmune)) return cell;
       let cur = cell, n = 0;
       while (this.tAt(cur[0], cur[1]) === 'I' && n++ < 12) {
         const next = [cur[0] + dir[0], cur[1] + dir[1]];
@@ -88,13 +88,51 @@
       if (h.sig) mult += DH.ENERGY.sigBonus;
       if (h.has('focus')) mult += DH.ENERGY.focusBonus;
       if (h.def.species === 'dragonkin') mult += DH.ENERGY.dragonkinBonus;
+      if (h.bond && h.bond.energy) mult += h.bond.energy / 100;
+      mult = Math.max(0.2, mult);
       const before = h.energy;
       h.energy = Math.min(100, h.energy + amt * mult);
       if (before < 100 && h.energy >= 100) this.fx.text(h.x, h.y - 60, '絕招就緒！', PAL.gold, { size: 14, dur: 1.1 });
     }
     canCast(h) { return h && h.ult && h.alive && h.energy >= 100 && this.state === 'idle' && !this.drag; }
+    comboReady(h) {
+      for (const b of (h.combos || [])) {
+        const mates = this.aliveHeroes().filter(x => x !== h && b.heroes.includes(x.id) && x.ult && x.energy >= 100);
+        if (mates.length >= ((b.need || b.heroes.length) - 1)) return { bond: b, mates: mates.slice(0, (b.need || b.heroes.length) - 1) };
+      }
+      return null;
+    }
+    async castCombo(h, cr) {
+      const b = cr.bond, all = [h, ...cr.mates], el = DH.ELEMENTS[h.element];
+      this.state = 'busy'; this.info = null;
+      for (const x of all) { x.energy = 0; x.playAnim('cast', 1.0, 0); this.fx.pillar(x.x, x.y, DH.ELEMENTS[x.element].light, 0.9); }
+      this.ultFlash = { t: 0, color: PAL.gold };
+      this.banner = { text: `合體技・${b.comboName}`, t: 0, dur: 1.5, color: PAL.gold };
+      this.fx.shake(10);
+      await sleep(800);
+      const mons = this.aliveMonsters(), heroes = this.aliveHeroes();
+      const dmgTo = (src, t, pct, note) => { const r = DH.calcDamage(src, t, { noRoll: true }); const dmg = Math.max(1, Math.round(r.expected * pct / 100)); t.takeDamage(dmg); this.fx.text(t.x, t.y - 30, `-${dmg}`, PAL.gold, { size: 26 }); this.fx.burst(t.x, t.y - 6, el.color, 14); if (note) this.fx.text(t.x, t.y - 52, note, PAL.gold, { size: 12, dur: 0.9 }); };
+      const strongest = all.slice().sort((a, b2) => b2.atk - a.atk)[0];
+      switch (b.combo) {
+        case 'royal_judgment': for (const a of heroes) { a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * 0.4)); a.heal(Math.round(a.maxHp * 0.3)); } for (const t of mons) { this.fx.pillar(t.x, t.y, '#fff2b0', 0.6); dmgTo(strongest, t, (t.def.race === 'undead' || t.def.race === 'demon') ? 300 : 180, '聖王'); } break;
+        case 'dragon_wall': { const g = all.find(x => x.id === 'guardian') || h; for (const t of mons) { this.fx.beam({ x: h.x, y: h.y - 10 }, { x: t.x, y: t.y - 6 }, '#ff7a3a', 0.4); dmgTo(strongest, t, 250); if (t.alive) { t.status.burn = { turns: 2, dmg: Math.round(strongest.atk * 0.15) }; t.forced = g; } } g.roar = 1; g.roarReflect = 0.8; break; }
+        case 'thunder_meteor': for (const t of mons) { this.fx.lightning({ x: t.x + 20, y: t.y - 200 }, { x: t.x, y: t.y - 6 }, '#7ad8ff'); this.fx.beam({ x: t.x - 30, y: t.y - 180 }, { x: t.x, y: t.y - 6 }, '#ff9a3a', 0.4); } await sleep(300); for (const t of mons) { dmgTo(strongest, t, 350); if (t.alive && !t.has('big') && Math.random() < 0.5) { t.status.stun = { turns: 1 }; this.fx.text(t.x, t.y - 52, '暈眩', PAL.gold, { size: 12, dur: 0.9 }); } } break;
+        case 'heaven_choir': for (const a of heroes) { a.hp = a.maxHp; a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * 0.5)); for (const k of Object.keys(a.status)) delete a.status[k]; this.fx.pillar(a.x, a.y, '#fff6c0', 0.8); } for (const t of mons) dmgTo(strongest, t, 150, '聖詠'); break;
+        case 'twin_shadow': { const ts = mons.slice().sort((a, b2) => a.hp - b2.hp).slice(0, 2); for (const t of ts) { this.fx.clones(t.x, t.y, '#3a2a50'); this.fx.slash(t.x, t.y - 8, '#c79af0'); dmgTo(strongest, t, 500); if (t.alive && !t.has('big') && t.hpRatio < 0.4) { t.takeDamage(t.hp); this.fx.text(t.x, t.y - 52, '處決', '#ff4a4a', { size: 14, dur: 0.9 }); } } break; }
+        case 'encore_rush': { const w = all.find(x => x.id === 'warriorL') || h; for (const a of heroes) { a.buffAtk = 1; a.supportAtk = Math.max(a.supportAtk || 0, 0.3); } for (let i = 0; i < 2; i++) { if (!this.aliveMonsters().length) break; await this.heroAct(w, true); } break; }
+      }
+      this.addLog(`${all.map(x => x.name).join('＋')} 發動合體技「${b.comboName}」！`);
+      await sleep(500);
+      this.actor = null;
+      this.monsters = this.monsters.filter(m => m.alive || m.alpha > 0);
+      if (await this.checkStageClear()) return true;
+      this.state = 'idle';
+      return true;
+    }
     async castUltimate(h) {
       if (!this.canCast(h)) return false;
+      const cr = this.comboReady(h);
+      if (cr) return this.castCombo(h, cr);
       this.state = 'busy'; this.info = null; h.energy = 0;
       const el = DH.ELEMENTS[h.element], u = h.ult, pw = u.power;
       this.actor = h; h.playAnim('cast', 0.9, 0);
@@ -312,10 +350,11 @@
         () => false, (c, r) => this.isObstacle(c, r));
       const allies = res.targets.map(p => this.unitAt(p[0], p[1])).concat([h]);
       const done = [];
-      const healMul = (1 + (h.hasSig('heal_boost') ? h.sigPct(0) : 0)) * (h.special === 'revive' ? 2 : 1);
+      const healMul = (1 + (h.hasSig('heal_boost') ? h.sigPct(0) : 0) + ((h.bond && h.bond.heal) || 0) / 100 + (h.bondHeal || 0)) * (h.special === 'revive' ? 2 : 1);
       for (const a of allies) {
         if (h.has('heal')) { const n = a.heal(Math.round(a.maxHp * 0.10 * healMul)); if (n > 0) { this.fx.text(a.x, a.y - 30, `+${n}`, PAL.heal); done.push(a); } }
         if (h.hasSig('support_atk')) { a.buffAtk = 1; a.supportAtk = h.sigPct(0); done.push(a); }
+        if (h.has('inspire') && h.bond && h.bond.supportAtk) { a.supportAtk = Math.max(a.supportAtk || 0, h.bond.supportAtk / 100); }
         if (h.hasSig('support_def')) { a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * h.sigPct(0))); this.fx.text(a.x, a.y - 60, '護盾', '#8fd8ff', { size: 12, dur: 0.9 }); done.push(a); }
         if (h.has('delayed_heal')) { a.delayedHeal += Math.round(a.maxHp * 0.15 * healMul); this.fx.text(a.x, a.y - 46, '延遲治癒', PAL.heal, { size: 12, dur: 0.9 }); done.push(a); }
         if (h.has('inspire')) { a.buffAtk = 1; this.fx.text(a.x, a.y - 46, '鼓舞', PAL.gold, { size: 12, dur: 0.9 }); done.push(a); }
@@ -509,6 +548,22 @@
       }
       if (any) await sleep(450);
     }
+    // 遺志緣：有隊友剛陣亡時觸發
+    checkDeaths() {
+      for (const dead of this.heroes) {
+        if (dead.alive || dead.deathHandled) continue;
+        dead.deathHandled = true;
+        for (const h of this.aliveHeroes()) for (const b of h.deathBonds) {
+          if (b.on !== '*' && b.on !== dead.id) continue;
+          if (b.on === '*' && dead === h) continue;
+          const e = b.effect;
+          if (e.atk) h.bondAtk += e.atk / 100; if (e.def) h.defense += e.def; if (e.energy) this.gainEnergy(h, e.energy); if (e.heal) h.bondHeal += e.heal / 100;
+          if (e.teamHeal) for (const a of this.aliveHeroes()) { const n = a.heal(Math.round(a.maxHp * e.teamHeal / 100)); if (n > 0) this.fx.text(a.x, a.y - 30, `+${n}`, PAL.heal); }
+          this.fx.pillar(h.x, h.y, DH.ELEMENTS[h.element].light, 0.7); this.fx.text(h.x, h.y - 60, `緣份「${b.name}」`, PAL.gold, { size: 14, dur: 1.3 });
+          this.addLog(`${dead.name} 倒下，${h.name} 觸發緣份「${b.name}」`);
+        }
+      }
+    }
     async monsterPhase() {
       await this.fireTick(this.heroes);
       if (!this.aliveHeroes().length) return;
@@ -562,6 +617,7 @@
             if (t.sig && t.sigSpecies === 'halfling') dodge += 0.20 * t.sig.scale;
             if (t.sig && t.sigSpecies === 'angel') dodge += 0.30 * t.sig.scale;
             if (t.hasSig('dodge')) dodge += t.sigPct(0);
+            if (t.bond && t.bond.dodge) dodge += t.bond.dodge / 100;
             if (dodge > 0 && Math.random() < dodge) { this.fx.text(t.x, t.y - 30, '落空', '#8fd8ff', { size: 16 }); continue; }
             const r = DH.calcDamage(m, t, { dirsHit: plan.dirsHit });
             if (t.sig && t.sigSpecies === 'dwarf' && !t.lifeSaved && r.dmg >= t.hp + t.shieldHp) { r.dmg = t.hp + t.shieldHp - 1; t.lifeSaved = true; this.fx.text(t.x, t.y - 46, '礦心', PAL.gold, { size: 14, dur: 1 }); }
@@ -587,6 +643,7 @@
         this.actor = null;
       }
       await this.tickStatus(this.heroes);
+      this.checkDeaths();
     }
 
     async showBanner(text) { this.banner = { text, t: 0, dur: 1.4 }; await sleep(1400); this.banner = null; }
@@ -860,7 +917,7 @@
         DH.drawHpBar(ctx, r.x + 8, r.y + 96, r.w - 16, h.hpRatio, h.alive ? PAL.hpHero : '#444', `${h.hp}/${h.maxHp}`);
         if (h.ult) {
           const full = h.energy >= 100;
-          DH.UI.bar(ctx, r.x + 8, r.y + 108, r.w - 16, 9, h.energy / 100, full ? PAL.gold : '#5ab0ff', full ? '絕招' : `${Math.floor(h.energy)}`);
+          DH.UI.bar(ctx, r.x + 8, r.y + 108, r.w - 16, 9, h.energy / 100, full ? PAL.gold : '#5ab0ff', full ? (this.comboReady(h) ? '合體技！' : '絕招') : `${Math.floor(h.energy)}`);
           if (full && h.alive) { ctx.save(); ctx.globalAlpha = 0.5 + 0.4 * Math.sin(this.time * 6); S.rr(ctx, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 14); ctx.lineWidth = 3; ctx.strokeStyle = PAL.gold; ctx.stroke(); ctx.restore(); }
         }
         DH.drawBadge(ctx, r.x + 13, r.y + 17, 9, String(h.order), PAL.gold, '#2a2030', 11);
@@ -912,6 +969,7 @@
         tl.unshift(`【克制】專精：對${DH.RACE_NAMES[cv[0]]} +${Math.round(cv[1] * 100)}%；種族：克制${DH.RACE_NAMES[sp.beats]}、被${DH.RACE_NAMES[sp.weak]}克制`);
       }
       if (u.special) tl.unshift(`【傳說・${DH.SPECIALS[u.special].name}】${DH.SPECIALS[u.special].desc}`);
+      if (u.side === 'hero' && u.instance) { const ab = this.game.meta.activeBonds().filter(b => b.heroes.includes(u.id) || (b.type === 'death' && b.to === u.id)); if (ab.length) tl.unshift(`【緣份】${ab.map(b => (b.negative ? '✗' : '✓') + b.name).join('、')}`); }
       if (u.ult) tl.unshift(`【大絕招 ${u.ult.name}】能量 ${Math.floor(u.energy)}/100：${u.ult.desc}`);
       if (u.sig) tl.unshift(`【專武 ${u.sig.name} Lv.${u.sig.level}】${DH.SIG_SPECIES[u.sig.species].name}：${DH.sigSpeciesDesc(u.sig.species, u.sig.level)}`, `【${u.sig.trait.name}】${DH.sigTraitDesc(u.id, u.sig.level, u.sig.variant)}`);
       if (!tl.length) tl.push('沒有天賦');

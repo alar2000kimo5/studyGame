@@ -72,6 +72,8 @@
       this.sig = def.sig || null;
       this.ult = DH.ultimateFor(def); this.energy = 0; this.cursed = 0; this.marked = 0; this.roar = 0;
       this.legendary = !!def.legendary; this.special = def.special || null; this.title = def.title || null; this.revived = false;
+      this.bond = def.bond || { atk: 0, hp: 0, def: 0, energy: 0, crit: 0, heal: 0, dodge: 0, vsBeast: 0, poisonAmp: 0, supportAtk: 0, iceImmune: false };
+      this.deathBonds = def.deathBonds || []; this.combos = def.combos || []; this.bondAtk = 0; this.bondHeal = 0; this.deathHandled = false;
       this.rage = 0; this.wasHit = false; this.lifeSaved = false; this.swapBuff = 0; this.iceBuff = 0; this.onFire = false;
     }
     hasSig(key) { return !!(this.sig && this.sig.trait && this.sig.trait.key === key); }

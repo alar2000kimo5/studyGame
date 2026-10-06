@@ -19,6 +19,8 @@
     if (attacker.has('hunter') && defender.has('beast')) { mult += 0.5; notes.push('獵殺'); }
     if (attacker.buffAtk > 0) { mult += 0.2 + (attacker.supportAtk || 0); notes.push('鼓舞'); }
     if (attacker.cursed > 0) { mult -= 0.3; notes.push('詛咒'); }
+    if (attacker.bond) { if (attacker.bond.vsBeast && defender.has('beast')) { mult += attacker.bond.vsBeast / 100; notes.push('緣份'); } if (attacker.bond.poisonAmp && defender.status.poison) { mult += attacker.bond.poisonAmp / 100; } }
+    if (attacker.bondAtk > 0) { mult += attacker.bondAtk; notes.push('遺志'); }
     if (attacker.swapBuff > 0) { mult += attacker.swapBuff; notes.push('換位'); }
     if (attacker.iceBuff > 0) { mult += attacker.iceBuff; notes.push('滑行'); }
     let cm = colorMult(attacker.element, defender.element);
@@ -71,6 +73,7 @@
     let crit = false;
     let critChance = attacker.has('critical') ? 0.25 : 0;
     if (attacker.sig && attacker.sigSpecies === 'halfling') critChance += 0.25 * attacker.sig.scale;
+    if (attacker.bond && attacker.bond.crit) critChance += attacker.bond.crit / 100;
     if (ctx.forceCrit || (!ctx.noRoll && critChance > 0 && Math.random() < critChance)) { base *= 1.5; crit = true; notes.push('會心'); }
     if (attacker.special === 'holy_strike' && defender.def && (defender.def.race === 'undead' || defender.def.race === 'demon')) { base *= 2; notes.push('聖光'); }
     base *= 100 / (100 + (defender.defense || 0));

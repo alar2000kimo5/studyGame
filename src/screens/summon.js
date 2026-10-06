@@ -157,7 +157,7 @@
       this.buttons = [];
       const m = this.game.meta, owned = new Set(m.d.heroes.map(h => h.id));
       ctx.fillStyle = 'rgba(6,4,12,0.96)'; ctx.fillRect(0, 0, C.W, C.H);
-      const detailH = this.codexSel ? 196 : 0, top = 182, bottom = C.H - 70 - detailH;
+      const detailH = this.codexSel ? 212 : 0, top = 182, bottom = C.H - 70 - detailH;
       const F = this.filter, match = d => (!F.element || d.element === F.element) && (!F.species || d.species === F.species) && (!F.cls || d.classKey === F.cls);
       ctx.save(); ctx.beginPath(); ctx.rect(0, top, C.W, bottom - top); ctx.clip();
       let y = top + 10 - this.scrollY;
@@ -204,6 +204,7 @@
         tl.forEach((s2, i) => { if (i < 4) ctx.fillText(s2, 28, dy + 70 + i * 18); });
         if (tl.length > 4) { ctx.fillStyle = PAL.textDim; ctx.fillText(`…還有 ${tl.length - 4} 個天賦（${d.talents.slice(5, 1 + d.stars).map(t => DH.TALENTS[t].name).join('、')}）`, 28, dy + 142); }
         ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專武：${DH.sigVariants(d.id).map(v => `${v[0]}（${v[1]}）`).join('、')}　種族效果：${DH.SIG_SPECIES[d.species].name}`.slice(0, 60), 28, dy + 162);
+        const bl = DH.BONDS.filter(b => b.heroes.includes(d.id) || (b.type === 'death' && b.to === d.id)); if (bl.length) { ctx.fillStyle = PAL.gold; ctx.fillText(('緣份：' + bl.map(b => b.name).join('、')).slice(0, 60), 28, dy + 178); }
       }
       ctx.fillStyle = 'rgba(6,4,12,1)'; ctx.fillRect(0, 0, C.W, top);
       ctx.font = `bold 22px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText('可召喚的英雄', 28, 40);
