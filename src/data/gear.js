@@ -24,24 +24,6 @@
     ring:   ['銅戒', '銀戒', '血玉戒', '星輝戒'],
     amulet: ['木符', '骨符', '龍心符', '聖光符'],
   };
-  // 專屬武器名稱：依職業，順序對應該職業的五位英雄（1★→5★ 的名冊順序）
-  const SIGNATURE_NAMES = {
-    knight:       ['誓約之劍', '礦心重劍', '銀葉騎士劍', '背棄者之刃', '龍息聖劍'],
-    warrior:      ['礦坑劈斧', '磨刀石戰斧', '蠻顎雙斧', '逆族月斧', '不滅火紋斧'],
-    archer:       ['林語長弓', '矮影短弓', '獵場硬弓', '藍焰龍弓', '支柱巨弓', '光羽弓'],
-    mage:         ['藏書杖', '焦餐法杖', '微光杖', '吼咒圖騰杖', '摘星杖', '晨星杖'],
-    cleric:       ['晨禱錘', '繃帶錘', '麥酒聖錘', '玫瑰祝福錘', '骨歌錘', '聖歌錘'],
-    rogue:        ['無聲雙刃', '順手匕首', '影語刺刀', '巨影雙刃', '雙生暗刃'],
-    barbarian:    ['破門巨棒', '凍土棍', '拔根樹棍', '不合理巨棒', '推山王棍'],
-    paladin:      ['刻名聖錘', '兒童尺寸聖錘', '聖徽鬚錘', '柔光盾錘', '熾信聖錘', '天啟聖錘'],
-    druid:        ['不語樹杖', '松鼠杖', '蘑菇杖', '沼澤慢杖', '開花龍鱗杖'],
-    witch:        ['大鍋攪杖', '低飛掃帚杖', '月巫杖', '三炸爐杖', '血巫杖'],
-    hunter:       ['斜角弩弓', '邊境獵弓', '獵首弓', '嗅跡追獵弓', '矛盾獵龍弓'],
-    bard:         ['走音魯特琴', '三首歌之琴', '忘痛琴', '崩坑戰歌琴', '龍吟琴'],
-    princess:     ['布陣權杖', '投票權杖', '出走王女杖', '純鐵王冠杖', '黑焰結界杖', '天界翼杖'],
-    elementalist: ['八方火球', '室內雨之球', '心情光球', '脾氣火球', '走動影球'],
-    guardian:     ['不動戰錘', '高過本人之錘', '排隊守門錘', '荊棘巨錘', '推不開之錘'],
-  };
   const RARITY_ORDER = ['magic', 'epic', 'mythic', 'legendary'];
   let gearUid = 1;
   const newUid = () => 'g' + (gearUid++) + '_' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -59,13 +41,9 @@
     const ri = RARITY_ORDER.indexOf(rarity);
     return { uid: newUid(), slot: slot.key, rarity, name: NAMES[slot.key][ri], stat: slot.stat, pct: DH.RARITIES[rarity].pct };
   };
-  DH.signatureName = function (heroId) {
-    const d = DH.HEROES[heroId]; if (!d) return '專屬武器';
-    const idx = Object.values(DH.HEROES).filter(h => h.classKey === d.classKey).findIndex(h => h.id === heroId);
-    return (SIGNATURE_NAMES[d.classKey] || [])[idx] || `${d.name}的專屬武器`;
-  };
-  DH.makeSignature = function (heroId) {
-    return { uid: newUid(), slot: 'weapon', rarity: 'signature', name: DH.signatureName(heroId), stat: 'atk', pct: 0.20, bonus: { hp: 0.10 }, heroId, level: 1 };
+  DH.makeSignature = function (heroId, variant) {
+    if (variant === undefined) variant = Math.floor(Math.random() * 3);
+    return { uid: newUid(), slot: 'weapon', rarity: 'signature', name: DH.signatureName(heroId, variant), stat: 'atk', pct: 0.20, bonus: { hp: 0.10 }, heroId, variant, level: 1 };
   };
   DH.gearLabel = g => `${DH.RARITIES[g.rarity].name}·${g.name}${g.rarity === 'signature' ? ` Lv.${g.level || 1}` : ''}`;
   // 專武依等級的實際數值

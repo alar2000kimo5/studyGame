@@ -775,7 +775,7 @@
         const cv = DH.CLASS_VS_RACE[u.def.classKey], sp = DH.SPECIES_VS_RACE[u.def.species];
         tl.unshift(`【克制】專精：對${DH.RACE_NAMES[cv[0]]} +${Math.round(cv[1] * 100)}%；種族：克制${DH.RACE_NAMES[sp.beats]}、被${DH.RACE_NAMES[sp.weak]}克制`);
       }
-      if (u.sig) tl.unshift(`【專武 ${u.sig.name} Lv.${u.sig.level}】${DH.SIG_SPECIES[u.sig.species].name}：${DH.sigSpeciesDesc(u.sig.species, u.sig.level)}`, `【${u.sig.trait.name}】${DH.sigTraitDesc(u.id, u.sig.level)}`);
+      if (u.sig) tl.unshift(`【專武 ${u.sig.name} Lv.${u.sig.level}】${DH.SIG_SPECIES[u.sig.species].name}：${DH.sigSpeciesDesc(u.sig.species, u.sig.level)}`, `【${u.sig.trait.name}】${DH.sigTraitDesc(u.id, u.sig.level, u.sig.variant)}`);
       if (!tl.length) tl.push('沒有天賦');
       ctx.font = `11px ${DH.FONT}`;
       tl.slice(0, 3).forEach((s, i) => { ctx.fillStyle = PAL.text; ctx.fillText(s.length > 44 ? s.slice(0, 43) + '…' : s, x, y + 48 + i * 15); });

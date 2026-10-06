@@ -57,7 +57,7 @@
       const sig = this.sigOf(h);
       if (sig && d.species === 'human') n += 1;   // 多才：額外天賦槽
       let out = list.slice(0, Math.min(n, list.length)).concat(d.innate || []);
-      if (sig) { const t = DH.sigTraitFor(h.id); if (t && t.key === 'grant' && !out.includes(t.params[0])) out.push(t.params[0]); }
+      if (sig) { const t = DH.sigTraitFor(h.id, sig.variant); if (t && t.key === 'grant' && !out.includes(t.params[0])) out.push(t.params[0]); }
       return out;
     }
     nextTalent(h) { const list = this.def(h).talents.slice(0, 1 + h.stars); return h.unlocked < list.length ? list[h.unlocked] : null; }
@@ -86,13 +86,13 @@
       if (sig) {
         const sc = DH.sigScale(sig.level);
         if (d.species === 'dwarf') def += Math.round(20 * sc);
-        const t = DH.sigTraitFor(h.id);
+        const t = DH.sigTraitFor(h.id, sig.variant);
         if (t && t.key === 'def_to_atk') atk *= 1 + (def / 10) * (t.params[0] * sc) / 100;
       }
       if (leaderBonus) { atk *= 1 + (leaderBonus.atk || 0); def += Math.round((leaderBonus.def || 0) * 100); }
       // 隊友專武的全隊加成
       if (this.d.team.includes(h.uid)) for (const o of this.teamHeroes()) {
-        const og = this.sigOf(o); if (!og) continue; const ot = DH.sigTraitFor(o.id); if (!ot) continue;
+        const og = this.sigOf(o); if (!og) continue; const ot = DH.sigTraitFor(o.id, og.variant); if (!ot) continue;
         const osc = DH.sigScale(og.level);
         if (ot.key === 'team_atk') atk *= 1 + ot.params[0] * osc / 100;
         if (ot.key === 'team_def') def += Math.round(ot.params[0] * osc);
@@ -136,7 +136,7 @@
       }
       return n;
     }
-    sigMaterials(h, gear) { return this.d.gear.filter(g => g.rarity === 'signature' && g.heroId === gear.heroId && g.uid !== gear.uid); }
+    sigMaterials(h, gear) { return this.d.gear.filter(g => g.rarity === 'signature' && g.heroId === gear.heroId && (g.variant || 0) === (gear.variant || 0) && g.uid !== gear.uid); }
     upgradeSignature(h, gear) {
       if (gear.rarity !== 'signature' || (gear.level || 1) >= DH.SIG_LEVEL_MAX) return false;
       const mat = this.sigMaterials(h, gear)[0]; if (!mat) return false;
@@ -180,8 +180,8 @@
       const sigGear = this.sigOf(h);
       let pattern = d.pattern, sig = null;
       if (sigGear) {
-        const t = DH.sigTraitFor(h.id);
-        sig = { species: d.species, level: sigGear.level || 1, scale: DH.sigScale(sigGear.level), trait: t, name: sigGear.name };
+        const t = DH.sigTraitFor(h.id, sigGear.variant);
+        sig = { species: d.species, level: sigGear.level || 1, scale: DH.sigScale(sigGear.level), trait: t, name: sigGear.name, variant: sigGear.variant || 0 };
         if (t && t.key === 'pattern_all') pattern = DH.PATTERNS[d.pattern].kind + '_all';
         if (t && t.key === 'range_pierce' && DH.PATTERNS[d.pattern].kind === 'ranged') pattern = d.pattern.replace('ranged', 'magic');
       }

@@ -198,8 +198,7 @@
         const tl = d.talents.slice(0, 1 + d.stars).map((t, i) => `${i === 0 ? '職業' : ''}【${DH.TALENTS[t].name}】${DH.TALENTS[t].desc}`);
         tl.forEach((s2, i) => { if (i < 4) ctx.fillText(s2, 28, dy + 70 + i * 18); });
         if (tl.length > 4) { ctx.fillStyle = PAL.textDim; ctx.fillText(`…還有 ${tl.length - 4} 個天賦（${d.talents.slice(5, 1 + d.stars).map(t => DH.TALENTS[t].name).join('、')}）`, 28, dy + 142); }
-        const tr = DH.sigTraitFor(d.id);
-        ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專武【${DH.signatureName(d.id)}】${DH.SIG_SPECIES[d.species].name}＋${tr.name}：${DH.sigTraitDesc(d.id, 1)}`.slice(0, 60), 28, dy + 162);
+        ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專武：${DH.sigVariants(d.id).map(v => `${v[0]}（${v[1]}）`).join('、')}　種族效果：${DH.SIG_SPECIES[d.species].name}`.slice(0, 60), 28, dy + 162);
       }
       ctx.fillStyle = 'rgba(6,4,12,1)'; ctx.fillRect(0, 0, C.W, top);
       ctx.font = `bold 22px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText('可召喚的英雄', 28, 40);

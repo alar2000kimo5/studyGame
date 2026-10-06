@@ -99,18 +99,27 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
-      // ── 專武 ──
+      // ── 專武（三把，各有特性）──
       py += 160;
-      const sigGear = m.sigOf(h), sigName = DH.signatureName(h.id), trait = DH.sigTraitFor(h.id), sp = DH.SIG_SPECIES[d.species];
-      UI.panel(ctx, 16, py, 508, 118, { radius: 14, fill: sigGear ? 'rgba(58,26,52,0.85)' : 'rgba(16,12,24,0.75)', stroke: sigGear ? '#ff6ad5' : PAL.frame });
-      ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專屬武器：${sigName}${sigGear ? `　Lv.${sigGear.level || 1} / ${DH.SIG_LEVEL_MAX}` : '　（未裝備，從武器召喚取得）'}`, 30, py + 18);
-      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = sigGear ? PAL.text : PAL.textDim;
+      const sigGear = m.sigOf(h), sp = DH.SIG_SPECIES[d.species], variants = DH.sigVariants(h.id);
+      const ownedVar = new Set(this.game.meta.d.gear.concat(Object.values(h.gear)).filter(g => g.rarity === 'signature' && g.heroId === h.id).map(g => g.variant || 0));
+      UI.panel(ctx, 16, py, 508, 176, { radius: 14, fill: sigGear ? 'rgba(58,26,52,0.85)' : 'rgba(16,12,24,0.75)', stroke: sigGear ? '#ff6ad5' : PAL.frame });
+      ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專屬武器（三把擇一裝備）${sigGear ? `　裝備中：${sigGear.name} Lv.${sigGear.level || 1}` : '　尚未裝備'}`, 30, py + 18);
       const lv = sigGear ? sigGear.level || 1 : 1;
-      UI.wrap(ctx, `【${DH.SPECIES[d.species]}・${sp.name}】${DH.sigSpeciesDesc(d.species, lv)}`, 30, py + 40, 480, 15, 2);
-      UI.wrap(ctx, `【${trait.name}】${DH.sigTraitDesc(h.id, lv)}`, 30, py + 72, 480, 15, 2);
-      ctx.fillStyle = PAL.textDim; ctx.fillText(`基礎：攻擊 +${Math.round(DH.sigBasePct(lv) * 100)}%、生命 +${Math.round(DH.sigHpPct(lv) * 100)}%。用同名專武可強化（每級效果 +15%）。`, 30, py + 104);
+      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = sigGear ? PAL.text : PAL.textDim;
+      UI.wrap(ctx, `【${DH.SPECIES[d.species]}・${sp.name}】${DH.sigSpeciesDesc(d.species, lv)}`, 30, py + 38, 480, 14, 2);
+      variants.forEach((v, i) => {
+        const eq = sigGear && (sigGear.variant || 0) === i, own = ownedVar.has(i), yy = py + 70 + i * 30;
+        S.rr(ctx, 30, yy - 11, 480, 26, 8); ctx.fillStyle = eq ? 'rgba(255,106,213,0.25)' : 'rgba(0,0,0,0.25)'; ctx.fill(); if (eq) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#ff6ad5'; ctx.stroke(); }
+        ctx.font = `bold 11px ${DH.FONT}`; ctx.fillStyle = own ? '#ff9ae0' : PAL.textDim; ctx.fillText(`${eq ? '▶ ' : ''}${v[0]}`, 38, yy + 2);
+        ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = own ? PAL.text : PAL.textDim;
+        const desc = `【${v[1]}】${DH.sigTraitDesc(h.id, eq ? lv : 1, i)}`;
+        ctx.fillText(desc.length > 40 ? desc.slice(0, 39) + '…' : desc, 140, yy + 2);
+        if (!own) { ctx.textAlign = 'right'; ctx.fillStyle = PAL.textDim; ctx.fillText('未取得', 504, yy + 2); ctx.textAlign = 'left'; }
+      });
+      ctx.font = `10px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`基礎：攻擊 +${Math.round(DH.sigBasePct(lv) * 100)}%、生命 +${Math.round(DH.sigHpPct(lv) * 100)}%。同一把專武可用來強化（每級效果 +15%）。從武器召喚取得，在武器欄切換。`, 30, py + 164);
       // ── 操作 ──
-      py += 128;
+      py += 186;      // ── 操作 ──
       const req = m.ascendReq(h), inTeam = m.d.team.includes(h.uid), dups = m.duplicates(h);
       UI.panel(ctx, 16, py, 508, 150, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
       ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText('昇華', 30, py + 18);
