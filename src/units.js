@@ -75,7 +75,12 @@
       this.bond = def.bond || { atk: 0, hp: 0, def: 0, energy: 0, crit: 0, heal: 0, dodge: 0, vsBeast: 0, poisonAmp: 0, supportAtk: 0, iceImmune: false };
       this.deathBonds = def.deathBonds || []; this.combos = def.combos || []; this.bondAtk = 0; this.bondHeal = 0; this.deathHandled = false;
       this.rage = 0; this.wasHit = false; this.lifeSaved = false; this.swapBuff = 0; this.iceBuff = 0; this.onFire = false;
+      this.gx = def.gx || {};                  // 裝備詞條、套裝、職業專屬的戰鬥效果（含隊伍光環）
+      this.gearSaved = false; this.reviveAllyUsed = false;
     }
+    gv(k) { return this.gx[k] || 0; }
+    // 受到治療加成
+    heal(n) { return super.heal(Math.round(n * (1 + this.gv('healRecv') / 100))); }
     hasSig(key) { return !!(this.sig && this.sig.trait && this.sig.trait.key === key); }
     sigParam(i) { return this.sig && this.sig.trait ? this.sig.trait.params[i] : 0; }
     sigPct(i) { return this.sig ? this.sigParam(i) * this.sig.scale / 100 : 0; }

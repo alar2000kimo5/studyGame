@@ -490,6 +490,19 @@
     ctx.beginPath(); ctx.moveTo(x, y - r + 2); ctx.lineTo(x + r - 2, y); ctx.lineTo(x, y); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
   };
 
+  // 防具圖示：護甲／頭盔／靴子／戒指／護符
+  DH.drawGearIcon = function (ctx, slot, x, y, color, t, scale) {
+    ctx.save(); ctx.translate(x, y); if (scale) ctx.scale(scale, scale); ctx.lineWidth = 2.5; ctx.strokeStyle = '#1a1420'; ctx.lineJoin = 'round';
+    const glow = 0.5 + 0.3 * Math.sin((t || 0) * 3);
+    ctx.shadowColor = color; ctx.shadowBlur = 10 * glow;
+    ctx.fillStyle = color;
+    if (slot === 'armor') { ctx.beginPath(); ctx.moveTo(-16, -14); ctx.lineTo(-6, -18); ctx.quadraticCurveTo(0, -12, 6, -18); ctx.lineTo(16, -14); ctx.lineTo(14, 2); ctx.lineTo(10, 2); ctx.lineTo(10, 18); ctx.lineTo(-10, 18); ctx.lineTo(-10, 2); ctx.lineTo(-14, 2); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(0, 16); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.stroke(); }
+    else if (slot === 'helmet') { ctx.beginPath(); ctx.arc(0, 4, 16, Math.PI, 0); ctx.lineTo(16, 12); ctx.lineTo(-16, 12); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; ctx.fillStyle = '#1a1420'; ctx.fillRect(-10, 2, 20, 4); ctx.fillStyle = '#fff6'; ctx.beginPath(); ctx.arc(-6, -4, 3, 0, Math.PI * 2); ctx.fill(); }
+    else if (slot === 'boots') { ctx.beginPath(); ctx.moveTo(-10, -18); ctx.lineTo(4, -18); ctx.lineTo(4, 4); ctx.lineTo(16, 8); ctx.lineTo(16, 16); ctx.lineTo(-10, 16); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-10, 11, 26, 5); }
+    else if (slot === 'ring') { ctx.beginPath(); ctx.arc(0, 4, 12, 0, Math.PI * 2); ctx.lineWidth = 6; ctx.strokeStyle = color; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = '#1a1420'; ctx.beginPath(); ctx.moveTo(-7, -10); ctx.lineTo(0, -18); ctx.lineTo(7, -10); ctx.lineTo(0, -4); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(-12, -18); ctx.quadraticCurveTo(0, -4, 12, -18); ctx.lineWidth = 2; ctx.strokeStyle = '#d8c890'; ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(11, 6); ctx.lineTo(0, 18); ctx.lineTo(-11, 6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#1a1420'; ctx.stroke(); }
+    ctx.restore();
+  };
   DH.drawWeaponIcon = function (ctx, kind, x, y, el, t, rarity) { ctx.save(); ctx.translate(x - 17, y + 10); drawWeapon(ctx, kind, 0, 0, el, t, rarity); ctx.restore(); };
   DH.shapes = { rr, ell, circ, fillStroke, shade };
 })(window.DH);

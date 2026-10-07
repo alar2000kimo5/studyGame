@@ -7,6 +7,7 @@
   const ASCEND_LEVEL = { 1: 30, 2: 40, 3: 50, 4: 60, 5: 70 };
   const SUMMON_COST = 300, SOUL_SUMMON_COST = 350, WEAPON_SUMMON_COST = 150;
   const SIGNATURE_RATE = 0.05;
+  const EXCLUSIVE_RATE = 0.10;
   const SUMMON_RATES = { 1: 40, 2: 30, 3: 19, 4: 8, 5: 3 };
   const SOUL_RATES = { 1: 25, 2: 28, 3: 25, 4: 15, 5: 7 };
   let heroUid = 1;
@@ -82,6 +83,9 @@
         if (g.stat === 'atk') atk *= 1 + e.pct; else if (g.stat === 'hp') hp *= 1 + e.pct; else def += Math.round(e.pct * 100);
         if (e.bonus) { if (e.bonus.atk) atk *= 1 + e.bonus.atk; if (e.bonus.hp) hp *= 1 + e.bonus.hp; if (e.bonus.def) def += Math.round(e.bonus.def * 100); }
       }
+      // 詞條與套裝的屬性加成
+      const gfx = this.gearFx(h).fx;
+      if (gfx.atk) atk *= 1 + gfx.atk / 100; if (gfx.hp) hp *= 1 + gfx.hp / 100; if (gfx.def) def += Math.round(gfx.def);
       const sig = this.sigOf(h);
       if (sig) {
         const sc = DH.sigScale(sig.level);
@@ -117,7 +121,8 @@
       this.d.tokens -= this.talentCost(h); h.unlocked++; this.save(); return true;
     }
     // ── 裝備 ─────────────────────────────────────────
-    canEquip(h, gear) { return !gear.heroId || gear.heroId === h.id; }
+    canEquip(h, gear) { return (!gear.heroId || gear.heroId === h.id) && (!gear.classKey || gear.classKey === this.def(h).classKey); }
+    gearFx(h) { return DH.gearFxOf(Object.values(h.gear)); }
     equip(h, gear) {
       if (!this.canEquip(h, gear)) return false;
       const prev = h.gear[gear.slot];
@@ -132,9 +137,10 @@
       for (const sl of DH.GEAR_SLOTS) {
         const cands = this.d.gear.filter(g => g.slot === sl.key && this.canEquip(h, g));
         if (!cands.length) continue;
-        cands.sort((a, b) => DH.rarityRank(b.rarity) - DH.rarityRank(a.rarity) || (b.level || 1) - (a.level || 1));
+        const score = g => DH.rarityRank(g.rarity) * 10 + (g.rarity === 'signature' ? 5 : 0) + (g.level || 1) + (g.affixes ? g.affixes.length : 0) + (g.set ? 1 : 0);
+        cands.sort((a, b) => score(b) - score(a));
         const best = cands[0], cur = h.gear[sl.key];
-        if (!cur || DH.rarityRank(best.rarity) > DH.rarityRank(cur.rarity) || (best.rarity === 'signature' && cur.rarity === 'signature' && (best.level || 1) > (cur.level || 1))) { this.equip(h, best); n++; }
+        if (!cur || score(best) > score(cur)) { this.equip(h, best); n++; }
       }
       return n;
     }
@@ -144,6 +150,13 @@
       const mat = this.sigMaterials(h, gear)[0]; if (!mat) return false;
       this.d.gear = this.d.gear.filter(g => g.uid !== mat.uid);
       gear.level = (gear.level || 1) + 1; this.save(); return true;
+    }
+    exclMaterials(gear) { return this.d.gear.filter(g => g.rarity === 'exclusive' && g.classKey === gear.classKey && g.slot === gear.slot && g.uid !== gear.uid); }
+    upgradeExclusive(gear) {
+      if (gear.rarity !== 'exclusive' || (gear.level || 1) >= DH.EXCL_LEVEL_MAX) return false;
+      const mat = this.exclMaterials(gear)[0]; if (!mat) return false;
+      this.d.gear = this.d.gear.filter(g => g.uid !== mat.uid);
+      gear.level = (gear.level || 1) + 1; gear.pct = DH.exclPct(gear.level); this.save(); return true;
     }
     sellGear(gear) { this.d.gear = this.d.gear.filter(g => g.uid !== gear.uid); this.d.gold += Math.round(DH.RARITIES[gear.rarity].price * 0.4); this.save(); }
     // ── 昇華 ─────────────────────────────────────────
@@ -281,7 +294,7 @@
         if (t && t.key === 'range_pierce' && DH.PATTERNS[d.pattern].kind === 'ranged') pattern = d.pattern.replace('ranged', 'magic');
       }
       const bond = this.bondStats(h), bonds = this.activeBonds();
-      return Object.assign({}, d, { pattern, hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, sig, bond, deathBonds: bonds.filter(b => b.type === 'death' && b.to === h.id), combos: bonds.filter(b => b.type === 'combo' && b.heroes.includes(h.id)) });
+      return Object.assign({}, d, { pattern, hp: s.hp, atk: s.atk, def: s.def, armor: 0, talents: this.unlockedTalents(h), level: h.level, stars: h.stars, instance: h, weaponRarity: h.gear.weapon ? h.gear.weapon.rarity : null, sig, bond, deathBonds: bonds.filter(b => b.type === 'death' && b.to === h.id), combos: bonds.filter(b => b.type === 'combo' && b.heroes.includes(h.id)), gx: Object.assign({}, this.gearFx(h).fx) });
     }
     // ── 召喚 ─────────────────────────────────────────
     summonCost() { return SUMMON_COST; }
@@ -336,6 +349,18 @@
       for (const g of out) this.d.gear.push(g);
       this.save(); return out;
     }
+    // 防具召喚：一般防具（帶詞條與套裝）或職業專屬套裝的一件；十連保底一件職業專屬
+    armorSummon(n) {
+      const cost = this.weaponSummonCost(n);
+      if (this.d.gems < cost) return null;
+      this.d.gems -= cost;
+      const cls = Object.keys(DH.CLASS_SETS), slots = DH.CLASS_SET_SLOTS, out = [];
+      const excl = () => DH.makeClassPiece(cls[Math.floor(Math.random() * cls.length)]);
+      for (let i = 0; i < n; i++) out.push(Math.random() < EXCLUSIVE_RATE ? excl() : DH.makeGear(slots[Math.floor(Math.random() * slots.length)], DH.rollRarity(3)));
+      if (n >= 10 && !out.some(g => g.rarity === 'exclusive')) out[n - 1] = excl();
+      for (const g of out) this.d.gear.push(g);
+      this.save(); return out;
+    }
     // ── 故事 ─────────────────────────────────────────
     storyProgress(heroId) { return (this.d.story && this.d.story[heroId]) || 0; }
     storyTeam(heroId) {
@@ -383,5 +408,5 @@
     buyXp(color) { if (this.d.gems < 100) return false; this.d.gems -= 100; this.d.xp[color] += 500; this.save(); return true; }
   }
   DH.Meta = Meta;
-  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SOUL_RATES, SUMMON_COST, SOUL_SUMMON_COST, WEAPON_SUMMON_COST, SIGNATURE_RATE, COLORS };
+  DH.META_CONST = { MAX_LEVEL, MAX_LEVEL_ASC, SUMMON_RATES, SOUL_RATES, SUMMON_COST, SOUL_SUMMON_COST, WEAPON_SUMMON_COST, SIGNATURE_RATE, EXCLUSIVE_RATE, COLORS };
 })(window.DH);

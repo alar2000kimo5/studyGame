@@ -88,9 +88,21 @@
       });
       // ── 裝備 ──
       py += 74;
-      UI.panel(ctx, 16, py, 508, 150, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
+      // 套裝與詞條總覽
+      const gsum = m.gearFx(h), fxLines = [];
+      for (const st of gsum.sets) {
+        const tiers = st.tiers.map(t => `${t}件${st.active.includes(t) ? '✓' : ''}：${DH.fxListText(DH.setBonusText(st, t)).join('、')}`).join('　');
+        fxLines.push({ text: `${st.name} ${st.count} 件　${tiers}`, color: st.active.length ? st.color : PAL.textDim });
+      }
+      const fxAll = DH.fxListText(Object.fromEntries(Object.entries(gsum.fx).filter(([k]) => !['atk', 'hp', 'def'].includes(k))));
+      if (fxAll.length) fxLines.push({ text: '效果合計：' + fxAll.join('、'), color: '#c8b8f0' });
+      ctx.font = `11px ${DH.FONT}`;
+      const fxH = fxLines.reduce((a, l) => a + Math.min(3, Math.ceil(ctx.measureText(l.text).width / 470)) * 15 + 4, 0);
+      UI.panel(ctx, 16, py, 508, 150 + fxH, { radius: 14, fill: 'rgba(16,12,24,0.75)' });
       ctx.textAlign = 'left'; ctx.font = `bold 13px ${DH.FONT}`; ctx.fillStyle = PAL.gold; ctx.fillText(`裝備 ${m.gearCount(h)} / 6`, 30, py + 18);
-      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('每件加成一項屬性；集滿並達到等級後可昇華', 120, py + 18);
+      ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('詞條與套裝效果會在戰鬥中生效', 120, py + 18);
+      let fy = py + 146;
+      for (const l of fxLines) { ctx.fillStyle = l.color; fy = UI.wrap(ctx, l.text, 30, fy, 480, 15, 3) + 4; }
       UI.button(this, ctx, 410, py + 6, 100, 26, '一鍵裝備', { size: 12, fill: PAL.gold, textColor: '#2a2030', onClick: () => { const n = m.autoEquip(h); this.flash(n ? `裝上了 ${n} 件裝備` : '沒有更好的裝備可換', n ? PAL.gold : '#ff9a5a'); } });
       DH.GEAR_SLOTS.forEach((sl, i) => {
         const gx = 30 + (i % 3) * 164, gy = py + 32 + Math.floor(i / 3) * 56, gear = h.gear[sl.key];
@@ -100,6 +112,7 @@
         ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(gear ? DH.gearStatLabel(gear) : '點擊裝備', gx + 10, gy + 34);
         this.buttons.push({ x: gx, y: gy, w: 154, h: 48, onClick: () => { this.picker = sl.key; this.pickerScroll = 0; } });
       });
+      py += fxH;
       // ── 緣份 ──
       const myBonds = DH.BONDS.filter(b => b.heroes.includes(d.id) || (b.type === 'death' && b.to === d.id));
       if (myBonds.length) {
@@ -178,26 +191,30 @@
     }
     drawPicker(ctx) {
       const m = this.game.meta, h = this.h, slot = DH.GEAR_SLOTS.find(s => s.key === this.picker);
-      const items = m.d.gear.filter(g => g.slot === slot.key).sort((a, b) => (DH.rarityRank(b.rarity) - DH.rarityRank(a.rarity)) || ((m.canEquip(h, b) ? 1 : 0) - (m.canEquip(h, a) ? 1 : 0)));
+      const items = m.d.gear.filter(g => g.slot === slot.key).sort((a, b) => ((m.canEquip(h, b) ? 1 : 0) - (m.canEquip(h, a) ? 1 : 0)) || (DH.rarityRank(b.rarity) - DH.rarityRank(a.rarity)) || ((b.affixes ? b.affixes.length : 0) - (a.affixes ? a.affixes.length : 0)));
       this.buttons = [];
       ctx.fillStyle = 'rgba(4,2,10,0.75)'; ctx.fillRect(0, 0, C.W, C.H);
       UI.panel(ctx, 30, 140, 480, 680, { radius: 18, fill: PAL.panel });
       ctx.font = `bold 20px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.gold; ctx.fillText(`選擇${slot.name}`, 50, 170);
       const cur = h.gear[slot.key];
       if (cur) {
-        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[cur.rarity].color; ctx.fillText(`目前：${DH.gearLabel(cur)}　${DH.gearStatLabel(cur)}`, 50, 196);
-        if (cur.rarity === 'signature') { const mats = m.sigMaterials(h, cur).length, maxed = (cur.level || 1) >= DH.SIG_LEVEL_MAX; UI.button(this, ctx, 50, 212, 150, 30, maxed ? '已滿級' : `強化（材料 ${mats}）`, { size: 12, fill: '#ff6ad5', textColor: '#2a2030', disabled: maxed || !mats, onClick: () => { if (m.upgradeSignature(h, cur)) this.flash(`專武升到 Lv.${cur.level}！`, '#ff9ae0'); } }); }
-        UI.button(this, ctx, 370, 212, 120, 30, '卸下', { size: 12, onClick: () => { m.unequip(h, slot.key); } });
+        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[cur.rarity].color; ctx.fillText(`目前：${DH.gearLabel(cur)}　${DH.gearStatLabel(cur)}`, 50, 192);
+        if (cur.rarity !== 'signature') { ctx.fillStyle = '#c8b8f0'; ctx.font = `11px ${DH.FONT}`; ctx.fillText((DH.gearFxLines(cur).join('、') || '無詞條').slice(0, 40), 50, 208); }
+        if (cur.rarity === 'exclusive') { const mats = m.exclMaterials(cur).length, maxed = (cur.level || 1) >= DH.EXCL_LEVEL_MAX; UI.button(this, ctx, 50, 220, 150, 28, maxed ? '已滿級' : `強化（材料 ${mats}）`, { size: 12, fill: '#3ae0c8', textColor: '#10282a', disabled: maxed || !mats, onClick: () => { if (m.upgradeExclusive(cur)) this.flash(`${cur.name} 升到 Lv.${cur.level}！`, '#8af0e0'); } }); }
+        if (cur.rarity === 'signature') { const mats = m.sigMaterials(h, cur).length, maxed = (cur.level || 1) >= DH.SIG_LEVEL_MAX; UI.button(this, ctx, 50, 220, 150, 28, maxed ? '已滿級' : `強化（材料 ${mats}）`, { size: 12, fill: '#ff6ad5', textColor: '#2a2030', disabled: maxed || !mats, onClick: () => { if (m.upgradeSignature(h, cur)) this.flash(`專武升到 Lv.${cur.level}！`, '#ff9ae0'); } }); }
+        UI.button(this, ctx, 370, 220, 120, 28, '卸下', { size: 12, onClick: () => { m.unequip(h, slot.key); } });
       }
       else { ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('目前沒有裝備', 50, 196); }
-      ctx.save(); ctx.beginPath(); ctx.rect(30, 248, 480, 506); ctx.clip();
-      this.pickerMax = Math.max(0, items.length * 62 - 506);
+      ctx.save(); ctx.beginPath(); ctx.rect(30, 256, 480, 500); ctx.clip();
+      const RH = 76;
+      this.pickerMax = Math.max(0, items.length * RH - 500);
       if (!items.length) { ctx.font = `14px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.textAlign = 'center'; ctx.fillText('背包裡沒有這個部位的裝備。打地牢或到商店取得。', C.W / 2, 300); }
       items.forEach((g, i) => {
-        const y = 254 + i * 62 - (this.pickerScroll || 0);
-        S.rr(ctx, 46, y, 448, 54, 10); ctx.fillStyle = '#2a2340'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = DH.RARITIES[g.rarity].color; ctx.stroke();
+        const y = 262 + i * RH - (this.pickerScroll || 0);
+        S.rr(ctx, 46, y, 448, RH - 8, 10); ctx.fillStyle = '#2a2340'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = DH.RARITIES[g.rarity].color; ctx.stroke();
         ctx.textAlign = 'left'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = DH.RARITIES[g.rarity].color; ctx.fillText(DH.gearLabel(g), 60, y + 18);
-        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.gearStatLabel(g) + (g.heroId ? `　專屬：${DH.HEROES[g.heroId].name}·${DH.HEROES[g.heroId].cls}` : ''), 60, y + 38);
+        ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.gearStatLabel(g) + (g.heroId ? `　專屬：${DH.HEROES[g.heroId].name}·${DH.HEROES[g.heroId].cls}` : g.classKey ? `　${DH.CLASSES[g.classKey].cls}專屬` : ''), 60, y + 38);
+        if (g.rarity !== 'signature') { ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = g.rarity === 'exclusive' ? '#8af0e0' : '#c8b8f0'; const fl = DH.gearFxLines(g).join('、') || '無詞條'; ctx.fillText(fl.length > 24 ? fl.slice(0, 23) + '…' : fl, 60, y + 56); }
         if (y > 150 && y < 760) {
           UI.button(this, ctx, 330, y + 10, 70, 34, '裝備', { size: 13, fill: PAL.gold, textColor: '#2a2030', disabled: !m.canEquip(h, g), onClick: () => { m.equip(h, g); this.picker = null; this.flash('裝備完成'); } });
           UI.button(this, ctx, 408, y + 10, 76, 34, `賣 ${Math.round(DH.RARITIES[g.rarity].price * 0.4)}金`, { size: 11, fill: '#4a3a2a', onClick: () => { m.sellGear(g); } });

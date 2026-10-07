@@ -16,7 +16,11 @@
     }
     doWeapon(n) {
       const ws = this.game.meta.weaponSummon(n); if (!ws) return this.fail('寶石不足');
-      this.weapons = ws; this.revealT = 0;
+      this.weapons = ws; this.weaponsKind = 'weapon'; this.revealT = 0;
+    }
+    doArmor(n) {
+      const ws = this.game.meta.armorSummon(n); if (!ws) return this.fail('寶石不足');
+      this.weapons = ws; this.weaponsKind = 'armor'; this.revealT = 0;
     }
     draw(ctx) {
       this.buttons = [];
@@ -31,29 +35,32 @@
       // 機率
       UI.panel(ctx, 24, 386, 492, 72, { radius: 14 });
       ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.text;
-      ctx.fillText('英雄：' + Object.entries(K.SUMMON_RATES).map(([s, p]) => `${s}★ ${p}%`).join('　') + '　靈魂：' + Object.entries(K.SOUL_RATES).map(([s, p]) => `${s}★ ${p}%`).join(' '), 40, 406);
+      ctx.font = `11px ${DH.FONT}`; ctx.fillText('英雄：' + Object.entries(K.SUMMON_RATES).map(([s, p]) => `${s}★${p}%`).join(' ') + '　靈魂：' + Object.entries(K.SOUL_RATES).map(([s, p]) => `${s}★${p}%`).join(' '), 36, 406); ctx.font = `12px ${DH.FONT}`;
       ctx.fillStyle = PAL.textDim;
-      ctx.fillText(`武器：專屬武器 ${Math.round(K.SIGNATURE_RATE * 100)}%（十連保底一把），其餘為魔法～傳說武器。重複英雄可合併或退役。`, 40, 428);
+      ctx.fillText(`武器：專屬武器 ${Math.round(K.SIGNATURE_RATE * 100)}%　防具：職業專屬 ${Math.round(K.EXCLUSIVE_RATE * 100)}%（十連各保底一件）`, 40, 428);
       ctx.fillText(`名冊 ${Object.keys(DH.HEROES).length} 位，兵營 ${m.d.heroes.length} 位，背包裝備 ${m.d.gear.length} 件。`, 40, 448);
       // 六個按鈕
       const rows = [
         { label: '英雄召喚', fill: PAL.gold, tc: '#2a2030', unit: '寶石', have: m.d.gems, c1: m.summonCostFor(false, 1), c10: m.summonCostFor(false, 10), go: n => this.doSummon(false, n) },
         { label: '靈魂召喚', fill: '#8c52c8', tc: '#fff', unit: '靈魂印記', have: m.d.soulSigils, c1: m.summonCostFor(true, 1), c10: m.summonCostFor(true, 10), go: n => this.doSummon(true, n) },
         { label: '武器召喚', fill: '#ff6ad5', tc: '#2a2030', unit: '寶石', have: m.d.gems, c1: m.weaponSummonCost(1), c10: m.weaponSummonCost(10), go: n => this.doWeapon(n) },
+        { label: '防具召喚', fill: '#3ae0c8', tc: '#10282a', unit: '寶石', have: m.d.gems, c1: m.weaponSummonCost(1), c10: m.weaponSummonCost(10), go: n => this.doArmor(n) },
       ];
       rows.forEach((r, i) => {
-        const y = 474 + i * 76;
+        const y = 468 + i * 64;
         ctx.font = `bold 15px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = r.fill; ctx.fillText(r.label, 28, y + 18);
-        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`持有 ${r.unit} ${r.have}`, 28, y + 40);
-        UI.button(this, ctx, 196, y, 150, 56, '×1', { fill: r.fill, textColor: r.tc, size: 18, sub: `${r.c1} ${r.unit}`, subColor: r.tc === '#fff' ? 'rgba(255,255,255,0.7)' : undefined, disabled: r.have < r.c1, onClick: () => r.go(1) });
-        UI.button(this, ctx, 362, y, 150, 56, '×10', { fill: r.fill, textColor: r.tc, size: 18, sub: `${r.c10} ${r.unit}`, subColor: r.tc === '#fff' ? 'rgba(255,255,255,0.7)' : undefined, disabled: r.have < r.c10, onClick: () => r.go(10) });
+        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`持有 ${r.unit} ${r.have}`, 28, y + 38);
+        UI.button(this, ctx, 196, y, 150, 54, '×1', { fill: r.fill, textColor: r.tc, size: 18, sub: `${r.c1} ${r.unit}`, subColor: r.tc === '#fff' ? 'rgba(255,255,255,0.7)' : undefined, disabled: r.have < r.c1, onClick: () => r.go(1) });
+        UI.button(this, ctx, 362, y, 150, 54, '×10', { fill: r.fill, textColor: r.tc, size: 18, sub: `${r.c10} ${r.unit}`, subColor: r.tc === '#fff' ? 'rgba(255,255,255,0.7)' : undefined, disabled: r.have < r.c10, onClick: () => r.go(10) });
       });
-      UI.button(this, ctx, 150, 712, 240, 44, '可召喚的英雄圖鑑', { size: 15, onClick: () => this.openCodex() });
-      ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = PAL.textDim; ctx.fillText('寶石來自地牢通關獎勵（首次通關加成）；靈魂印記來自退役英雄', C.W / 2, 776);
-      if (this.msgT > 0) { ctx.font = `bold 16px ${DH.FONT}`; ctx.fillStyle = '#ff6a5a'; ctx.fillText(this.msg, C.W / 2, 806); }
+      UI.button(this, ctx, 40, 730, 220, 42, '英雄圖鑑', { size: 15, onClick: () => this.openCodex() });
+      UI.button(this, ctx, 280, 730, 220, 42, '職業專屬套裝圖鑑', { size: 14, fill: '#1e4a46', onClick: () => { this.setCodex = true; this.scrollY = 0; } });
+      ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = PAL.textDim; ctx.fillText('寶石來自地牢通關獎勵（首次通關加成）；靈魂印記來自退役英雄', C.W / 2, 790);
+      if (this.msgT > 0) { ctx.font = `bold 16px ${DH.FONT}`; ctx.fillStyle = '#ff6a5a'; ctx.fillText(this.msg, C.W / 2, 816); }
       UI.header(this, ctx, '召喚');
       UI.nav(this, ctx, 'summon');
       if (this.codex) this.drawCodex(ctx);
+      if (this.setCodex) this.drawSetCodex(ctx);
       if (this.result) this.drawResult(ctx);
       if (this.multi) this.drawMulti(ctx);
       if (this.weapons) this.drawWeapons(ctx);
@@ -121,23 +128,29 @@
       this.buttons = [];
       const items = this.weapons, n = items.length;
       ctx.fillStyle = 'rgba(4,2,10,0.94)'; ctx.fillRect(0, 0, C.W, C.H);
-      ctx.font = `bold 24px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ff6ad5'; ctx.fillText(`武器召喚 ×${n}`, C.W / 2, 60);
-      const sig = items.filter(g => g.rarity === 'signature').length;
-      ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(sig ? `獲得 ${sig} 把專屬武器！` : '這次沒有專屬武器', C.W / 2, 90);
+      ctx.font = `bold 24px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const armorMode = this.weaponsKind === 'armor';
+      ctx.fillStyle = armorMode ? '#3ae0c8' : '#ff6ad5'; ctx.fillText(`${armorMode ? '防具' : '武器'}召喚 ×${n}`, C.W / 2, 60);
+      const sig = items.filter(g => g.rarity === 'signature' || g.rarity === 'exclusive').length;
+      ctx.font = `13px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(sig ? `獲得 ${sig} 件${armorMode ? '職業專屬防具' : '專屬武器'}！` : `這次沒有${armorMode ? '職業專屬防具' : '專屬武器'}`, C.W / 2, 90);
       const cols = n === 1 ? 1 : 2, cw = n === 1 ? 300 : 236, ch = 118, gap = 10, x0 = (C.W - cols * cw - (cols - 1) * gap) / 2, y0 = n === 1 ? 300 : 112;
       items.forEach((g, i) => {
         const x = x0 + (i % cols) * (cw + gap), y = y0 + Math.floor(i / cols) * (ch + gap), R = DH.RARITIES[g.rarity];
         const p = Math.min(1, Math.max(0, (this.revealT - i * 0.1) / 0.3));
         if (p <= 0) { S.rr(ctx, x, y, cw, ch, 10); ctx.fillStyle = '#2a2340'; ctx.fill(); return; }
         ctx.save(); ctx.globalAlpha = p;
-        S.rr(ctx, x, y, cw, ch, 10); ctx.fillStyle = g.rarity === 'signature' ? '#3a1a34' : '#241e36'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = R.color; ctx.stroke();
+        S.rr(ctx, x, y, cw, ch, 10); ctx.fillStyle = g.rarity === 'signature' ? '#3a1a34' : g.rarity === 'exclusive' ? '#143432' : '#241e36'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = R.color; ctx.stroke();
         const hero = g.heroId ? DH.HEROES[g.heroId] : null;
         const el = hero ? DH.ELEMENTS[hero.element] : DH.ELEMENTS.light;
         const kind = hero ? hero.look.weapon : ['sword', 'axe', 'bow', 'staff', 'mace', 'dagger', 'club', 'hammer'][i % 8];
-        DH.drawWeaponIcon(ctx, kind, x + 34, y + ch / 2, el, this.time, g.rarity);
+        if (g.slot === 'weapon') DH.drawWeaponIcon(ctx, kind, x + 34, y + ch / 2, el, this.time, g.rarity);
+        else DH.drawGearIcon(ctx, g.slot, x + 34, y + ch / 2, R.color, this.time);
         ctx.font = `bold 14px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = R.color; ctx.fillText(DH.gearLabel(g), x + 70, y + 24);
-        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; UI.wrap(ctx, DH.gearStatLabel(g), x + 70, y + 46, cw - 80, 15, 2);
-        if (hero) {
+        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; UI.wrap(ctx, DH.gearStatLabel(g), x + 70, y + 44, cw - 80, 15, 1);
+        if (g.slot !== 'weapon') {
+          ctx.fillStyle = g.rarity === 'exclusive' ? '#8af0e0' : '#c8b8f0'; UI.wrap(ctx, DH.gearFxLines(g).join('、') || '無詞條', x + 70, y + 62, cw - 80, 15, 2);
+          if (g.rarity === 'exclusive') { ctx.fillStyle = '#3ae0c8'; ctx.fillText(`${DH.CLASSES[g.classKey].cls}專屬・${DH.CLASS_SETS[g.classKey].name}套裝`, x + 70, y + 100); }
+          else { ctx.fillStyle = PAL.textDim; ctx.fillText('任何英雄都能裝備', x + 70, y + 100); }
+        } else if (hero) {
           ctx.fillStyle = '#ff9ae0'; ctx.fillText(`專屬：${hero.name}・${hero.cls}`, x + 70, y + 84);
           const owned = this.game.meta.d.heroes.some(h => h.id === hero.id);
           ctx.fillStyle = owned ? PAL.heal : PAL.textDim; ctx.fillText(owned ? '（已擁有此英雄）' : '（尚未擁有此英雄）', x + 70, y + 102);
@@ -146,11 +159,43 @@
       });
       if (this.revealT > n * 0.1 + 0.3) {
         const by = n === 1 ? 480 : 770;
-        ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = PAL.textDim; ctx.fillText('武器已放入背包，到英雄卡的裝備欄裝備', C.W / 2, by - 24);
+        ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = PAL.textDim; ctx.fillText(`${armorMode ? '防具' : '武器'}已放入背包，到英雄卡的裝備欄裝備`, C.W / 2, by - 24);
         UI.button(this, ctx, 90, by, 170, 50, '關閉', { onClick: () => { this.weapons = null; } });
         const cost = this.game.meta.weaponSummonCost(n);
-        UI.button(this, ctx, 280, by, 170, 50, n === 1 ? '再抽一次' : '再抽十次', { fill: '#ff6ad5', textColor: '#2a2030', sub: `${cost} 寶石`, disabled: this.game.meta.d.gems < cost, onClick: () => this.doWeapon(n) });
+        UI.button(this, ctx, 280, by, 170, 50, n === 1 ? '再抽一次' : '再抽十次', { fill: armorMode ? '#3ae0c8' : '#ff6ad5', textColor: '#2a2030', sub: `${cost} 寶石`, disabled: this.game.meta.d.gems < cost, onClick: () => armorMode ? this.doArmor(n) : this.doWeapon(n) });
       }
+    }
+    // 職業專屬套裝圖鑑
+    drawSetCodex(ctx) {
+      this.buttons = [];
+      ctx.fillStyle = 'rgba(6,4,12,1)'; ctx.fillRect(0, 0, C.W, C.H);
+      const top = 92, bottom = C.H - 70, owned = this.game.meta.d.gear.concat(...this.game.meta.d.heroes.map(h => Object.values(h.gear))).filter(g => g.rarity === 'exclusive');
+      ctx.save(); ctx.beginPath(); ctx.rect(0, top, C.W, bottom - top); ctx.clip();
+      let y = top + 8 - this.scrollY;
+      for (const [key, cs] of Object.entries(DH.CLASS_SETS)) {
+        const h = 40 + cs.pieces.length * 17 + 44;
+        if (y < bottom && y + h > top) {
+          UI.panel(ctx, 14, y, 512, h - 8, { radius: 12, fill: 'rgba(20,40,40,0.6)', stroke: '#3ae0c8' });
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = `bold 14px ${DH.FONT}`; ctx.fillStyle = '#3ae0c8'; ctx.fillText(`${DH.CLASSES[key].cls}・${cs.name}`, 28, y + 18);
+          ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(cs.flavor, 150, y + 18);
+          cs.pieces.forEach((p, i) => {
+            const yy = y + 40 + i * 17, have = owned.some(g => g.classKey === key && g.slot === p.slot);
+            DH.drawGearIcon(ctx, p.slot, 38, yy, have ? '#3ae0c8' : '#4a5a5a', this.time, 0.38);
+            ctx.font = `bold 11px ${DH.FONT}`; ctx.fillStyle = have ? '#8af0e0' : PAL.textDim; ctx.textAlign = 'left'; ctx.fillText(p.name, 56, yy);
+            ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.text; ctx.fillText(DH.fxListText(p.fx).join('、'), 140, yy);
+          });
+          const by = y + 40 + cs.pieces.length * 17 + 4;
+          ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.gold;
+          ctx.fillText(`3 件：${DH.fxListText(cs[3]).join('、')}`, 28, by); ctx.fillText(`5 件：${DH.fxListText(cs[5]).join('、')}`, 28, by + 16);
+        }
+        y += h;
+      }
+      ctx.restore();
+      this.scrollMax = Math.max(0, y + this.scrollY - bottom + 10);
+      ctx.fillStyle = 'rgba(6,4,12,1)'; ctx.fillRect(0, 0, C.W, top);
+      ctx.font = `bold 22px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#3ae0c8'; ctx.fillText('職業專屬套裝', 28, 40);
+      ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText('只有該職業能穿；同套 3 件、5 件有套裝效果；重複的同一件可強化到 Lv.5。亮色為已擁有。', 28, 70);
+      UI.button(this, ctx, 400, 22, 112, 36, '關閉', { size: 14, onClick: () => { this.setCodex = false; this.scrollY = 0; this.scrollMax = 0; } });
     }
     // 圖鑑：所有可召喚的英雄，依星數分組
     drawCodex(ctx) {

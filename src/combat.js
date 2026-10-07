@@ -24,6 +24,23 @@
     if (attacker.swapBuff > 0) { mult += attacker.swapBuff; notes.push('換位'); }
     if (attacker.iceBuff > 0) { mult += attacker.iceBuff; notes.push('滑行'); }
     let cm = colorMult(attacker.element, defender.element);
+    // ── 裝備詞條、套裝、職業專屬 ──
+    const gx = attacker.side === 'hero' && attacker.gx ? attacker.gx : null;
+    if (gx) {
+      const g = k => gx[k] || 0, add = (v, note) => { if (v) { mult += v / 100; if (note) notes.push(note); } };
+      add(g('auraAtk'));
+      if (defender.boss) add(g('bossDmg'), '首領剋星');
+      if ((ctx.targets || 1) >= 2) add(g('multiDmg')); else add(g('singleDmg'));
+      if (ctx.orderIndex === 0) add(g('firstStrike'));
+      if (ctx.moved === true) add(g('movedDmg')); else if (ctx.moved === false) add(g('unmovedDmg'));
+      if (attacker.hpRatio < 0.5) add(g('lowHpDmg'));
+      if (defender.hpRatio < 0.5) add(g('execute'));
+      if (defender.status && (defender.status.poison || defender.status.burn)) add(g('vsStatus'));
+      if (defender.has('beast') || (defender.def && defender.def.race === 'beast')) add(g('beastDmg'));
+      if (defender.def && (defender.def.race === 'undead' || defender.def.race === 'demon')) add(g('holyDmg'));
+      if (ctx.ult) add(g('ultDmg'));
+      if (cm > 1) add(g('colorAdv'));
+    }
     // ── 專武 ──
     if (attacker.sig) {
       const sc = attacker.sig.scale, sp = attacker.sigSpecies;
@@ -74,7 +91,8 @@
     let critChance = attacker.has('critical') ? 0.25 : 0;
     if (attacker.sig && attacker.sigSpecies === 'halfling') critChance += 0.25 * attacker.sig.scale;
     if (attacker.bond && attacker.bond.crit) critChance += attacker.bond.crit / 100;
-    if (ctx.forceCrit || (!ctx.noRoll && critChance > 0 && Math.random() < critChance)) { base *= 1.5; crit = true; notes.push('會心'); }
+    if (gx) critChance += (gx.crit || 0) / 100;
+    if (ctx.forceCrit || (!ctx.noRoll && critChance > 0 && Math.random() < critChance)) { base *= 1.5 + (gx ? (gx.critDmg || 0) / 100 : 0); crit = true; notes.push('會心'); }
     if (attacker.special === 'holy_strike' && defender.def && (defender.def.race === 'undead' || defender.def.race === 'demon')) { base *= 2; notes.push('聖光'); }
     base *= 100 / (100 + (defender.defense || 0));
     if (defender.cursed > 0) base *= 1.3;
@@ -84,6 +102,7 @@
       if (defender.hasSig('low_hp_def') && defender.hpRatio < 0.5) base *= 1 - defender.sigPct(0);
       if (defender.hasSig('boss_slayer') && attacker.boss) base *= 1 - defender.sigPct(1);
     }
+    if (defender.side === 'hero' && defender.gx && defender.gx.dr) base *= 1 - Math.min(50, defender.gx.dr) / 100;
     const layers = defender.armor + (defender.has('shield') ? 1 : 0);
     base *= Math.pow(C.DEF_MULT, layers);
     if (attacker.pattern.kind === 'melee') {
