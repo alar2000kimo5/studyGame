@@ -4,7 +4,12 @@
   const G = DH.Grid, C = DH.CONFIG;
   const MAX_DEPTH = 4;
 
-  DH.planAutoTurn = function (b) {
+  // opts.exclude：這回合已經被 AI 拖過的英雄（不再當主角拖，但仍可被交換）
+  // opts.moved：已經移動過的英雄（影響「移動後」類天賦的評分）
+  // 回傳的方案只有在比「不動」更好時才有 path
+  DH.planAutoTurn = function (b, opts) {
+    opts = opts || {};
+    const exclude = opts.exclude || new Set(), prevMoved = opts.moved || new Set();
     const heroes = b.aliveHeroes(), monsters = b.aliveMonsters();
     if (!heroes.length || !monsters.length) return null;
     const overlay = new Map();                                   // uid → [c,r]（模擬位置）
@@ -13,16 +18,19 @@
     const blocksLine = (c, r) => b.isObstacle(c, r);
     const seen = new Set();
     let best = { score: -Infinity, hero: null, path: [] };
+    let baseline = null;
 
     const evaluate = (mover, swapped) => {
       let score = 0; const dmgOn = new Map();
-      const movedSet = new Set([mover, ...swapped]);
+      const movedSet = new Set([...prevMoved, ...(mover ? [mover] : []), ...swapped]);
       for (const h of heroes) {
         const p = posOf(h), elf = h.sig && h.sigSpecies === 'elf';
         const res = DH.resolveTargets(h.pattern, p,
           (c, r) => { const u = unitAt(c, r); return !!u && u.side === 'monster'; },
           (c, r) => { if (elf) return false; const u = unitAt(c, r); return !!u && u.side === 'hero' && u !== h; }, blocksLine);
         const targets = res.targets.map(q => unitAt(q[0], q[1]));
+        // 打不到任何怪物的英雄：越靠近最近的怪物越好（讓每位英雄都有理由走位）
+        if (!targets.length) { let dmin = 99; for (const m of monsters) dmin = Math.min(dmin, G.chebyshev(p, m.pos)); score -= dmin * 4; }
         for (const t of targets) {
           const r = DH.calcDamage(h, t, { noRoll: true, dirsHit: res.dirsHit, targets: targets.length, moved: movedSet.has(h), turn: b.turn });
           const before = dmgOn.get(t) || 0, after = before + r.expected;
@@ -43,12 +51,13 @@
         for (const h of near) score -= m.atk * (h.hpRatio < 0.4 ? 0.9 : 0.35) / near.length;
       }
       // 地形
-      const mp = posOf(mover);
-      for (const u of [mover, ...swapped]) { const up = posOf(u); const t = b.tAt(up[0], up[1]); if (!b.ignoresTerrain(u) && ((t === 'F' && !u.hasSig('fire_walker')) || 'SPT'.includes(t))) score -= 120; }
+      for (const u of (mover ? [mover] : []).concat(swapped)) { const up = posOf(u); const t = b.tAt(up[0], up[1]); if (!b.ignoresTerrain(u) && ((t === 'F' && !u.hasSig('fire_walker')) || 'SPT'.includes(t))) score -= 120; }
       return score;
     };
 
+    baseline = evaluate(null, []);
     for (const hero of heroes) {
+      if (exclude.has(hero)) continue;
       const dfs = (pos, path, swapped, depth) => {
         if (path.length) {
           const key = hero.uid + '|' + pos.join(',') + '|' + swapped.map(s => s.uid + ':' + posOf(s).join(',')).sort().join(';');
@@ -83,6 +92,9 @@
       dfs(hero.pos, [], [], MAX_DEPTH);
       overlay.clear();
     }
-    return best.hero ? best : null;
+    if (!best.hero) return null;
+    // 多步自動：沒有比原地更好就不動（第一步一定要動，維持原本手動規則的意義）
+    if (exclude.size && best.score <= baseline + 1) return { score: baseline, hero: null, path: [] };
+    return best;
   };
 })(window.DH);

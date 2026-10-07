@@ -29,7 +29,7 @@
       this.turnOrder = this.heroes.slice(); this.turnOrder.forEach((h, i) => h.order = i + 1);
       this.monsters = [];
       this.drag = null; this.stars = 0; this.buttons = [];
-      this.auto = false; this.autoWait = 0;
+      this.auto = !!game.meta.d.autoBattle; this.autoWait = 0;   // 自動戰鬥開關跨關保留，直到玩家自己關掉
       this.spawnStage(0, true);
       this.waveStart();
       this.addLog(`${dungeon.name}　第 1 波`);
@@ -201,7 +201,7 @@
       for (const b of this.buttons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.onClick(); return; }
       if (this.state !== 'idle') return;
       if (y < 100 && x < 70) { if (this.dungeon.story) this.game.showStories(this.dungeon.story.heroId); else this.game.showCampaign({ chapter: this.dungeon.chapter, mode: 'levels' }); return; }
-      if (this.auto && G.pixelToCell(x, y)) { const cu = this.unitAt(...G.pixelToCell(x, y)); if (cu && cu.side === 'hero') this.auto = false; }
+      if (this.auto && G.pixelToCell(x, y)) { const cu = this.unitAt(...G.pixelToCell(x, y)); if (cu && cu.side === 'hero') { this.fx.text(cu.x, cu.y - 40, '自動中，點右上「自動」關閉', PAL.gold, { size: 13, dur: 1.2 }); return; } }
       const cell = G.pixelToCell(x, y);
       if (cell) {
         const u = this.unitAt(cell[0], cell[1]);
@@ -285,14 +285,21 @@
       this.pendingOrder = order;
     }
     endDrag() {
+      const d = this.drag;
+      if (!this.commitDrag(true)) { this.state = 'idle'; return; }
+      this.resolveTurn();
+    }
+    // 放下目前拖曳的英雄：更新行動順序、移動名單、能量與陷阱。fresh = 本回合第一次拖曳（手動模式只有一次）
+    commitDrag(fresh) {
       const d = this.drag; this.drag = null; d.hero.lifted = false;
-      if (!d.changed) { this.state = 'idle'; this.heroes.forEach(h => h.order = this.turnOrder.indexOf(h) + 1); return; }
+      if (!d.changed) { this.heroes.forEach(h => h.order = this.turnOrder.indexOf(h) + 1); return false; }
       this.turnOrder = this.pendingOrder || this.turnOrder;
       this.turnOrder.forEach((h, i) => h.order = i + 1);
-      this.movedSet = new Set([d.hero, ...d.swaps]);
+      if (fresh) this.movedSet = new Set();
+      for (const h of [d.hero, ...d.swaps]) this.movedSet.add(h);
       this.gainEnergy(d.hero, DH.ENERGY.dragged); for (const a of d.swaps) this.gainEnergy(a, DH.ENERGY.swapped);
-      for (const h of this.movedSet) this.landTrap(h);
-      this.resolveTurn();
+      for (const h of [d.hero, ...d.swaps]) this.landTrap(h);
+      return true;
     }
 
     // ── 回合流程 ──────────────────────────────────────
@@ -658,22 +665,33 @@
     defeat() { this.state = 'lost'; this.addLog('全軍覆沒…'); }
 
     // ── 更新 ──────────────────────────────────────────
+    // 自動戰鬥：每位英雄都由 AI 拖曳一次（依目前局面挑最有利的英雄先走），全部走完後全隊攻擊
     async runAuto() {
       if (this.state !== 'idle' || this.drag) return;
       for (const h of this.aliveHeroes()) if (this.canCast(h)) { await this.castUltimate(h); if (this.state !== 'idle') return; }
-      const plan = DH.planAutoTurn(this);
-      if (!plan || !plan.path.length) { this.auto = false; this.addLog('自動：找不到可行的移動'); return; }
-      const h = plan.hero, c0 = G.cellCenter(h.col, h.row);
-      this.startDrag(h, c0.x, c0.y);
-      this.state = 'drag';
-      for (const step of plan.path) {
-        if (this.dead || !this.drag) return;
-        const r = this.tryStep(step);
-        const c = G.cellCenter(h.col, h.row); this.drag.px = c.x; this.drag.py = c.y;
-        if (!r) break;
-        await sleep(160);
+      this.state = 'busy'; this.movedSet = new Set();
+      const done = new Set();
+      let movedAny = false;
+      while (!this.dead && this.auto) {
+        const plan = DH.planAutoTurn(this, { exclude: done, moved: this.movedSet });
+        if (!plan || !plan.path.length) break;
+        const h = plan.hero, c0 = G.cellCenter(h.col, h.row);
+        done.add(h);
+        this.startDrag(h, c0.x, c0.y); this.drag.auto = true; this.state = 'busy';
+        for (const step of plan.path) {
+          if (this.dead || !this.drag) break;
+          const r = this.tryStep(step);
+          const c = G.cellCenter(h.col, h.row); this.drag.px = c.x; this.drag.py = c.y;
+          if (!r) break;
+          await sleep(140);
+        }
+        if (this.drag) { if (this.commitDrag(false)) movedAny = true; }
+        await sleep(120);
       }
-      if (this.drag) this.endDrag();
+      if (this.dead) return;
+      if (!this.auto && !movedAny) { this.state = 'idle'; return; }        // 中途關掉自動且還沒動：交還給玩家
+      if (!movedAny) this.addLog('自動：原地攻擊');
+      this.resolveTurn();
     }
     update(dt) {
       this.time += dt;
@@ -686,7 +704,7 @@
         d.timer -= dt;
         d.hero.x += (Math.max(C.BOARD_X, Math.min(C.BOARD_X + C.COLS * C.CELL, d.px)) - d.hero.x) * Math.min(1, dt * 30);
         d.hero.y += (Math.max(C.BOARD_Y, Math.min(C.BOARD_Y + C.ROWS * C.CELL, d.py)) - d.hero.y) * Math.min(1, dt * 30);
-        if (d.timer <= 0) this.endDrag();
+        if (d.timer <= 0 && !d.auto) this.endDrag();
       }
     }
 
@@ -734,7 +752,7 @@
       ctx.font = `12px ${DH.FONT}`; ctx.fillStyle = PAL.textDim;
       ctx.fillText(this.auto ? '自動戰鬥中' : this.state === 'idle' ? '拖曳一名英雄' : this.state === 'drag' ? '放開即行動' : this.state === 'busy' ? (this.actor && this.actor.side === 'monster' ? '怪物行動中' : '英雄行動中') : '', 440, 66);
       ctx.restore();
-      if (this.state !== 'won' && this.state !== 'lost') DH.UI.button(this, ctx, 448, 54, 68, 28, this.auto ? '自動 ON' : '自動', { size: 12, fill: this.auto ? PAL.gold : PAL.panelLight, textColor: this.auto ? '#2a2030' : PAL.text, radius: 9, onClick: () => { this.auto = !this.auto; this.info = null; } });
+      if (this.state !== 'won' && this.state !== 'lost') DH.UI.button(this, ctx, 448, 54, 68, 28, this.auto ? '自動 ON' : '自動', { size: 12, fill: this.auto ? PAL.gold : PAL.panelLight, textColor: this.auto ? '#2a2030' : PAL.text, radius: 9, onClick: () => { this.auto = !this.auto; this.info = null; this.game.meta.d.autoBattle = this.auto; this.game.meta.save(); } });
     }
     drawBoard(ctx) {
       const T = this.theme, bx = C.BOARD_X, by = C.BOARD_Y, bw = C.COLS * C.CELL, bh = C.ROWS * C.CELL;
