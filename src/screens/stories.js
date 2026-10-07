@@ -23,18 +23,32 @@
       const owned = new Set(m.d.heroes.map(h => h.id));
       ctx.font = `12px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = PAL.textDim;
       ctx.fillText('每位 5★ 英雄有五章故事，每章一場劇情戰鬥（主角必須上場）。全部完成送該英雄的專武。', 24, 100 - this.scrollY);
-      const rowH = 86, y0 = 118;
-      this.scrollMax = Math.max(0, y0 + DH.STORIES.length * rowH - (C.H - 80));
+      const rowH = 86, secH = 30, y0 = 118;
+      // 排序：已擁有且未完成（進行中優先）→ 已擁有且完成 → 尚未擁有
+      const rank = st => { const own = owned.has(st.heroId), p = m.storyProgress(st.heroId); return own ? (p >= 5 ? 2 : p > 0 ? 0 : 1) : 3; };
+      const list = DH.STORIES.map((st, i) => ({ st, i, r: rank(st) })).sort((a, b) => a.r - b.r || a.i - b.i);
+      const nOwn = list.filter(o => o.r < 3).length;
+      const sections = [{ at: 0, title: `可以遊玩（${nOwn}）`, show: nOwn > 0 }, { at: nOwn, title: `尚未擁有英雄（${list.length - nOwn}）・可先閱讀，召喚到英雄後才能戰鬥`, show: nOwn < list.length }];
+      const rowY = k => y0 + k * rowH + sections.filter(sc => sc.show && sc.at <= k).length * secH;
+      this.scrollMax = Math.max(0, rowY(list.length) - (C.H - 80));
       ctx.save(); ctx.beginPath(); ctx.rect(0, 86, C.W, C.H - 86 - 76); ctx.clip();
-      DH.STORIES.forEach((st, i) => {
-        const y = y0 + i * rowH - this.scrollY; if (y > C.H || y + rowH < 80) return;
+      for (const sc of sections) {
+        if (!sc.show) continue;
+        const y = rowY(sc.at) - secH - this.scrollY;
+        ctx.font = `bold 13px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = sc.at === 0 ? PAL.gold : PAL.textDim; ctx.fillText(sc.title, 20, y + 15);
+        ctx.fillStyle = sc.at === 0 ? PAL.gold : '#4a4458'; ctx.fillRect(20, y + 26, 500, 1.5);
+      }
+      list.forEach(({ st, i }, k) => {
+        const y = rowY(k) - this.scrollY; if (y > C.H || y + rowH < 80) return;
         const d = DH.HEROES[st.heroId], el = DH.ELEMENTS[d.element], prog = m.storyProgress(st.heroId), own = owned.has(st.heroId), done = prog >= 5;
+        ctx.save(); if (!own) ctx.globalAlpha = 0.55;
         S.rr(ctx, 16, y, 508, rowH - 8, 12); ctx.fillStyle = done ? '#2a2a18' : PAL.panel; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = done ? PAL.gold : el.dark; ctx.stroke();
         ctx.save(); ctx.beginPath(); S.rr(ctx, 17, y + 1, 70, rowH - 10, 11); ctx.clip(); ctx.translate(52, y + 44); ctx.scale(0.75, 0.75); DH.drawHero(ctx, { look: d.look, element: d.element, uid: i, shieldHp: 0 }, 0, 0, this.time, { noShadow: true }); ctx.restore();
         ctx.font = `bold 15px ${DH.FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = PAL.text; ctx.fillText(`${d.name}・${d.cls}　《${st.title}》`, 96, y + 20);
-        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`${DH.ELEMENTS[d.element].name}色・${DH.SPECIES[d.species]}　緣份夥伴：${st.partner ? DH.HEROES[st.partner].name : '無'}　${own ? '' : '（尚未擁有，可閱讀但無法戰鬥）'}`, 96, y + 40);
+        ctx.font = `11px ${DH.FONT}`; ctx.fillStyle = PAL.textDim; ctx.fillText(`${DH.ELEMENTS[d.element].name}色・${DH.SPECIES[d.species]}　緣份夥伴：${st.partner ? DH.HEROES[st.partner].name : '無'}`, 96, y + 40);
         UI.bar(ctx, 96, y + 56, 300, 10, prog / 5, done ? PAL.gold : el.color, `${prog} / 5 章`);
-        ctx.textAlign = 'right'; ctx.font = `bold 12px ${DH.FONT}`; ctx.fillStyle = done ? PAL.gold : PAL.textDim; ctx.fillText(done ? '已完成' : prog ? '進行中' : '未開始', 508, y + 20);
+        ctx.textAlign = 'right'; ctx.font = `bold 12px ${DH.FONT}`; ctx.fillStyle = !own ? '#ff8a7a' : done ? PAL.gold : prog ? '#7ad8ff' : PAL.textDim; ctx.fillText(!own ? '未擁有' : done ? '已完成' : prog ? '進行中' : '可開始', 508, y + 20);
+        ctx.restore();
         this.buttons.push({ x: 16, y, w: 508, h: rowH - 8, onClick: () => { this.sel = st.heroId; this.scrollY = 0; } });
       });
       ctx.restore();

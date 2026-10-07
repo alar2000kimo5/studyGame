@@ -200,7 +200,7 @@
     pointerDown(x, y) {
       for (const b of this.buttons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.onClick(); return; }
       if (this.state !== 'idle') return;
-      if (y < 100 && x < 70) { this.game.showCampaign(); return; }
+      if (y < 100 && x < 70) { if (this.dungeon.story) this.game.showStories(this.dungeon.story.heroId); else this.game.showCampaign({ chapter: this.dungeon.chapter, mode: 'levels' }); return; }
       if (this.auto && G.pixelToCell(x, y)) { const cu = this.unitAt(...G.pixelToCell(x, y)); if (cu && cu.side === 'hero') this.auto = false; }
       const cell = G.pixelToCell(x, y);
       if (cell) {
@@ -1026,7 +1026,7 @@
         ctx.fillText('試著讓怪物同時被多名英雄攻擊，', C.W / 2, 420); ctx.fillText('並把牧師留到最後再碰，讓他先出手治療。', C.W / 2, 446);
       }
       const bx = 100, by = top + ph - 90, bw = 160, bh = 54;
-      this.button(ctx, bx, by, bw, bh, this.dungeon.story ? '返回故事' : '返回地圖', PAL.panelLight, () => this.dungeon.story ? this.game.showStories(this.dungeon.story.heroId) : this.game.showCampaign());
+      this.button(ctx, bx, by, bw, bh, this.dungeon.story ? '返回故事' : '返回地圖', PAL.panelLight, () => this.dungeon.story ? this.game.showStories(this.dungeon.story.heroId) : this.game.showCampaign({ chapter: this.dungeon.chapter, mode: 'levels' }));
       if (this.dungeon.story) this.button(ctx, bx + 180, by, bw, bh, won ? '觀看劇情 ▶' : '返回故事', PAL.gold, () => this.game.showStories(this.dungeon.story.heroId, won ? this.dungeon.story.idx : null), '#2a2030');
       else if (won && this.game.nextDungeon(this.dungeon.id)) this.button(ctx, bx + 180, by, bw, bh, '下一關 ▶', PAL.gold, () => this.game.startDungeon(this.game.nextDungeon(this.dungeon.id)), '#2a2030');
       else this.button(ctx, bx + 180, by, bw, bh, '再挑戰一次', PAL.gold, () => this.game.startDungeon(this.dungeon), '#2a2030');

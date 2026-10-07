@@ -38,7 +38,7 @@
     _switch(scene) { if (this.scene && this.scene.dead !== undefined) this.scene.dead = true; this.scene = scene; }
     show(key) { ({ campaign: () => this.showCampaign(), barracks: () => this.showBarracks(), summon: () => this.showSummon(), shop: () => this.showShop(), stories: () => this.showStories() })[key](); }
     showStories(heroId, outro) { this._switch(new DH.Stories(this, heroId, outro)); }
-    showCampaign() { this._switch(new DH.Campaign(this)); }
+    showCampaign(opts) { this._switch(new DH.Campaign(this, opts)); }
     showBarracks() { this._switch(new DH.Barracks(this)); }
     showHeroCard(uid, back) { this._switch(new DH.HeroCard(this, uid, back || (() => this.showBarracks()))); }
     showTeam(dungeon) { this._switch(new DH.TeamSelect(this, dungeon)); }

@@ -101,7 +101,7 @@
       }
       return { hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def) };
     }
-    power(h) { const s = this.stats(h); return Math.round(s.atk * 3 + s.hp / 2 + s.def * 2); }
+    power(h, withLeader) { const s = this.stats(h, withLeader ? this.leaderBonusFor(h) : null); return Math.round(s.atk * 3 + s.hp / 2 + s.def * 2); }
 
     // ── 升級（彩色經驗 / 彩虹經驗）───────────────────
     canLevel(h) { return h.level < this.maxLevel(h) && this.xpAvailable(h) >= this.xpToNext(h); }
@@ -171,6 +171,69 @@
     setTeam(uids) { this.d.team = uids.slice(0, 5).filter(u => this.hero(u)); this.save(); }
     withTeam(uids, fn) { this._teamOverride = uids; try { return fn(); } finally { this._teamOverride = null; } }
     teamHeroes() { return this.d.team.map(u => this.hero(u)).filter(Boolean); }
+    // 隊伍戰力：以 uids 為隊伍（第一位是隊長）計算每人含隊長加成、緣份、隊友專武的戰力合計
+    teamPower(uids) {
+      const old = this.d.team; this.d.team = uids;
+      try { return this.teamHeroes().reduce((a, h) => a + this.power(h, true), 0); } finally { this.d.team = old; }
+    }
+    // 自動組隊的評分：戰力 + 非數值緣份（能量、會心、治療、閃避、合體技、遺志）的估值；有禁忌緣份則不可行
+    teamScore(uids) {
+      const bonds = this.activeBonds(uids);
+      if (bonds.some(b => b.type === 'forbid')) return -Infinity;
+      let s = this.teamPower(uids), extra = 0;
+      for (const b of bonds) {
+        if (b.type === 'combo') extra += 0.06;
+        else if (b.type === 'death') extra += 0.02;
+        else if (b.stats) for (const st of Object.values(b.stats)) extra += ((st.energy || 0) + (st.crit || 0) + (st.dodge || 0) + (st.heal || 0) / 2 + (st.supportAtk || 0)) / 1000;
+      }
+      return s * (1 + extra);
+    }
+    // 一鍵組隊：固定隊長（沒有隊長就從戰力前幾名中挑最好的），依緣份與戰力找出分數最高的五人
+    autoTeam(leaderUid) {
+      const best = {};
+      for (const h of this.d.heroes) { const p = this.power(h); if (!best[h.id] || p > best[h.id].p) best[h.id] = { h, p }; }
+      const pool = Object.values(best).sort((a, b) => b.p - a.p).map(o => o.h);
+      if (!pool.length) return [];
+      const top = pool.slice(0, 24);
+      const fill = (team) => {
+        team = team.slice();
+        while (team.length < Math.min(5, pool.length)) {
+          let bs = -Infinity, bu = null;
+          const ids = new Set(team.map(u => this.hero(u).id));
+          const cand = top.concat(pool.filter(h => DH.BONDS.some(b => b.heroes.includes(h.id) && b.heroes.some(id => ids.has(id)))));
+          for (const h of cand) { if (team.includes(h.uid) || ids.has(h.id)) continue; const sc = this.teamScore(team.concat(h.uid)); if (sc > bs) { bs = sc; bu = h.uid; } }
+          if (!bu) break; team.push(bu);
+        }
+        return team;
+      };
+      const improve = (team) => {
+        let cur = this.teamScore(team);
+        for (let pass = 0; pass < 3; pass++) {
+          let changed = false;
+          for (let i = 1; i < team.length; i++) for (const h of pool) {
+            if (team.includes(h.uid) || team.some((u, k) => k !== i && this.hero(u).id === h.id)) continue;
+            const t = team.slice(); t[i] = h.uid; const sc = this.teamScore(t);
+            if (sc > cur + 1e-6) { team = t; cur = sc; changed = true; }
+          }
+          if (!changed) break;
+        }
+        return { team, score: cur };
+      };
+      const leaders = leaderUid && this.hero(leaderUid) ? [this.hero(leaderUid)] : pool.slice(0, 6);
+      let result = null;
+      for (const L of leaders) {
+        const starts = [[L.uid]];
+        // 以隊長相關的緣份為起點：把緣份成員一起放進隊伍再補滿
+        for (const b of DH.BONDS) {
+          if (b.negative || b.type === 'forbid' || b.type === 'death' || !b.heroes.includes(L.id)) continue;
+          const mem = b.heroes.filter(id => id !== '*' && id !== L.id).map(id => best[id] && best[id].h).filter(Boolean);
+          if (!mem.length) continue;
+          starts.push([L.uid].concat(mem.slice(0, 4).map(h => h.uid)));
+        }
+        for (const s of starts) { const r = improve(fill(s)); if (!result || r.score > result.score) result = r; }
+      }
+      return result ? result.team : [];
+    }
     // ── 緣份 ──
     // 回傳目前隊伍（或指定 uid 列表）觸發的緣份：team / sig 立即生效，death / combo 為待觸發
     activeBonds(uids) {
